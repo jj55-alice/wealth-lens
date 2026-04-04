@@ -15,6 +15,7 @@ import { HealthScore } from '@/components/health-score';
 import { LeaseAlerts } from '@/components/lease-alerts';
 import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
+import { HouseholdMembers } from '@/components/household-members';
 import { createClient } from '@/lib/supabase/client';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
@@ -193,6 +194,16 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
               </CardHeader>
               <CardContent>
                 <AssetList assets={assets} exchangeRate={exchangeRate} />
+              </CardContent>
+            </Card>
+
+            {/* Household Members */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">가구 구성원</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <HouseholdMembers />
               </CardContent>
             </Card>
 
