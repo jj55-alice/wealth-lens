@@ -8,3 +8,12 @@
 **Priority:** P2
 **Depends on:** Phase 4 재무건강점수 기본 구현 완료 후
 **Source:** /plan-ceo-review 2026-04-04, 외부 의견 반영
+
+## P1: 주식 종목 검색/선택 UI
+**What:** 주식 등록 시 텍스트 입력 대신 시장(코스피/코스닥/나스닥/NYSE) 선택 → 종목 검색 → 드롭다운 선택 방식으로 변경
+**Why:** 현재 텍스트 입력은 오타 위험, 티커 모르는 사용자 불편. 종목명으로 검색하면 티커가 자동 매칭되어야 함.
+**Context:** 네이버 금융 검색 API (`https://m.stock.naver.com/front-api/v1/search/autoComplete?query=삼성`) 활용 가능. 국내주식은 종목코드(6자리), 해외주식은 Yahoo 티커. 검색 결과에서 선택하면 ticker, name, price_source, asset_class가 자동 설정됨.
+**Effort:** M (human: ~3일 / CC: ~30분)
+**Priority:** P1
+**Depends on:** 현재 자산 등록 폼 완성 후
+**Source:** 사용자 요청 2026-04-04
