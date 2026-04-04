@@ -80,6 +80,7 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
     <div ref={containerRef} className="relative">
       <div className="relative">
         <Input
+          aria-label="종목 검색"
           placeholder={placeholder}
           value={query}
           onChange={(e) => {

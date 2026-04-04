@@ -316,7 +316,7 @@ export default function NewAssetPage() {
               <div className="space-y-1.5">
                 <Label>계좌 유형</Label>
                 <Select value={accountType} onValueChange={(v) => v && setAccountType(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="일반" /></SelectTrigger>
                   <SelectContent>
                     {STOCK_ACCOUNT_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
