@@ -22,9 +22,10 @@ interface Props {
   household: Household;
   assets: AssetWithPrice[];
   liabilities: Liability[];
+  exchangeRate?: number | null;
 }
 
-export function DashboardView({ household, assets, liabilities }: Props) {
+export function DashboardView({ household, assets, liabilities, exchangeRate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
   async function handleLogout() {
@@ -191,7 +192,7 @@ export function DashboardView({ household, assets, liabilities }: Props) {
                 <CardTitle className="text-sm">자산 목록</CardTitle>
               </CardHeader>
               <CardContent>
-                <AssetList assets={assets} />
+                <AssetList assets={assets} exchangeRate={exchangeRate} />
               </CardContent>
             </Card>
 

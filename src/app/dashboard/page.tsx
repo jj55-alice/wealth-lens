@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [household, setHousehold] = useState<Household | null>(null);
   const [assets, setAssets] = useState<AssetWithPrice[]>([]);
   const [liabilities, setLiabilities] = useState<Liability[]>([]);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -123,6 +124,18 @@ export default function DashboardPage() {
         })) as Liability[],
       );
 
+      // 해외주식이 있으면 환율 조회
+      const hasForeign = rawAssets.some((a) => a.price_source === 'yahoo_finance');
+      if (hasForeign) {
+        try {
+          const rateRes = await fetch('/api/exchange-rate');
+          const rateData = await rateRes.json();
+          if (rateData.rate) setExchangeRate(rateData.rate);
+        } catch {
+          // ignore
+        }
+      }
+
       setLoading(false);
     }
 
@@ -156,6 +169,7 @@ export default function DashboardPage() {
       household={household}
       assets={assets}
       liabilities={liabilities}
+      exchangeRate={exchangeRate}
     />
   );
 }

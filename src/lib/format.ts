@@ -23,6 +23,23 @@ export function formatKRW(value: number): string {
 }
 
 /**
+ * 해외주식 달러/원화 병행 표시
+ * 예: "$198.50 (29만)" 또는 "$198.50 (1억 2,300만)"
+ */
+export function formatUsdKrw(krwPrice: number, exchangeRate: number): string {
+  const usdPrice = krwPrice / exchangeRate;
+  const usdFormatted = `$${usdPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${usdFormatted} (${formatKRW(krwPrice)})`;
+}
+
+/**
+ * 해외주식 단가 달러 표시
+ */
+export function formatUsd(usdPrice: number): string {
+  return `$${usdPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
  * 변동률 포맷: +2.3% or -1.5%
  */
 export function formatPercent(value: number): string {
