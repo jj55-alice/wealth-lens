@@ -38,7 +38,8 @@ export default function LoginPage() {
         if (signInError) throw signInError;
       }
 
-      window.location.href = '/dashboard';
+      const params = new URLSearchParams(window.location.search);
+      window.location.href = params.get('redirect') || '/dashboard';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '오류가 발생했습니다';
       setError(message);

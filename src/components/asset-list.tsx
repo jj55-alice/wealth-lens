@@ -93,6 +93,11 @@ export function AssetList({ assets, exchangeRate }: Props) {
                       <div>
                         <p className="text-sm font-medium">{asset.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
+                          {asset.ownership === 'shared' && (
+                            <Badge variant="outline" className="text-[10px] px-1">
+                              공동
+                            </Badge>
+                          )}
                           {asset.brokerage && (
                             <span className="text-xs text-muted-foreground">
                               {asset.brokerage}
@@ -116,6 +121,17 @@ export function AssetList({ assets, exchangeRate }: Props) {
                             <Badge variant="outline" className="text-[10px] px-1">
                               만기 {asset.lease_expiry}
                             </Badge>
+                          )}
+                          {asset.category === 'real_estate' && asset.updated_at && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {(() => {
+                                const days = Math.floor((Date.now() - new Date(asset.updated_at).getTime()) / (1000 * 60 * 60 * 24));
+                                if (days === 0) return '오늘 업데이트';
+                                if (days <= 7) return `${days}일 전 업데이트`;
+                                if (days <= 30) return `${Math.floor(days / 7)}주 전 업데이트`;
+                                return `${Math.floor(days / 30)}개월 전`;
+                              })()}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -143,6 +159,21 @@ export function AssetList({ assets, exchangeRate }: Props) {
                             : formatKRW(asset.current_value)
                           }
                         </p>
+                        {(() => {
+                          const pp = (asset as unknown as { purchase_price: number | null }).purchase_price;
+                          if (!pp || pp <= 0) return null;
+                          const currentVal = asset.current_value;
+                          const returnRate = ((currentVal - pp * (asset.quantity ?? 1)) / (pp * (asset.quantity ?? 1))) * 100;
+                          // 부동산은 quantity=null이므로 manual_value vs purchase_price 직접 비교
+                          const realReturn = asset.category === 'real_estate' && asset.manual_value
+                            ? ((Number(asset.manual_value) - pp) / pp) * 100
+                            : returnRate;
+                          return (
+                            <p className={`text-[10px] ${realReturn >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {realReturn >= 0 ? '+' : ''}{realReturn.toFixed(1)}%
+                            </p>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { classifyAsset } from '@/lib/classification';
@@ -59,11 +59,40 @@ const LIABILITY_TYPES: { value: LiabilityCategory; label: string }[] = [
   { value: 'other', label: '기타 대출' },
 ];
 
+interface HouseholdMember {
+  user_id: string;
+  email: string;
+  role: string;
+}
+
 export default function NewAssetPage() {
   const router = useRouter();
   const [entryType, setEntryType] = useState<EntryType | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [ownerUserId, setOwnerUserId] = useState('');
+  const [ownership, setOwnership] = useState<'personal' | 'shared'>('personal');
+
+  // Load household members
+  useEffect(() => {
+    async function loadMembers() {
+      try {
+        const res = await fetch('/api/invite');
+        const data = await res.json();
+        if (Array.isArray(data.members)) {
+          setMembers(data.members);
+          // 본인을 기본 소유자로 설정
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) setOwnerUserId(user.id);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadMembers();
+  }, []);
 
   // Common fields
   const [name, setName] = useState('');
@@ -125,7 +154,8 @@ export default function NewAssetPage() {
       if (entryType === 'liability') {
         await supabase.from('liabilities').insert({
           household_id: householdId,
-          owner_user_id: user.id,
+          owner_user_id: ownerUserId || user.id,
+          ownership,
           category: liabilityType,
           name,
           balance: Number(balance) || 0,
@@ -134,7 +164,8 @@ export default function NewAssetPage() {
       } else {
         const assetData: Record<string, unknown> = {
           household_id: householdId,
-          owner_user_id: user.id,
+          owner_user_id: ownerUserId || user.id,
+          ownership,
           category: entryType,
         };
 
@@ -144,6 +175,7 @@ export default function NewAssetPage() {
             assetData.subcategory = realEstateType;
             assetData.address = address || null;
             assetData.manual_value = Number(manualValue) || 0;
+            if (purchasePrice) assetData.purchase_price = Number(purchasePrice);
             assetData.price_source = 'manual';
             assetData.asset_class = 'alternative';
             assetData.lease_expiry = leaseExpiry || null;
@@ -282,6 +314,35 @@ export default function NewAssetPage() {
 
       <main className="mx-auto max-w-lg px-6 py-8">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 소유자 선택 (구성원이 2명일 때만 표시) */}
+          {members.length > 1 && (
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <div className="space-y-1.5">
+                <Label>소유자</Label>
+                <Select value={ownerUserId} onValueChange={(v) => v && setOwnerUserId(v)}>
+                  <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.email} {m.role === 'owner' ? '(관리자)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>소유 형태</Label>
+                <Select value={ownership} onValueChange={(v) => v && setOwnership(v as 'personal' | 'shared')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">개인 소유</SelectItem>
+                    <SelectItem value="shared">공동 소유</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* 부동산 */}
           {entryType === 'real_estate' && (
             <>
@@ -306,6 +367,20 @@ export default function NewAssetPage() {
                   required
                   maxLength={100}
                 />
+                {!name && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {['래미안', '자이', '힐스테이트', '푸르지오', 'e편한세상', '롯데캐슬', '아이파크'].map((apt) => (
+                      <button
+                        key={apt}
+                        type="button"
+                        onClick={() => setName(apt)}
+                        className="px-2 py-0.5 text-xs rounded-full border border-border text-muted-foreground hover:bg-muted/50"
+                      >
+                        {apt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>주소</Label>
@@ -316,6 +391,21 @@ export default function NewAssetPage() {
                   maxLength={200}
                 />
               </div>
+              {realEstateType === 'owned' && (
+                <div className="space-y-1.5">
+                  <Label>매수가 (원)</Label>
+                  <Input
+                    type="number"
+                    placeholder="실제 매수 금액"
+                    value={purchasePrice}
+                    onChange={(e) => setPurchasePrice(e.target.value)}
+                    min={0}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    현재 시세와의 차이(수익률)를 계산합니다
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>
                   {realEstateType === 'jeonse' ? '전세보증금 (원)' : '현재 시세 (원)'}
@@ -354,6 +444,20 @@ export default function NewAssetPage() {
                     네이버 부동산 →
                   </a>
                 </div>
+                {purchasePrice && manualValue && Number(purchasePrice) > 0 && (
+                  <div className="rounded-lg bg-muted/30 border border-border px-3 py-2 mt-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">매수가 대비</span>
+                      <span className={Number(manualValue) >= Number(purchasePrice) ? 'text-emerald-500 font-semibold' : 'text-red-500 font-semibold'}>
+                        {Number(manualValue) >= Number(purchasePrice) ? '+' : ''}
+                        {(((Number(manualValue) - Number(purchasePrice)) / Number(purchasePrice)) * 100).toFixed(1)}%
+                        {' '}
+                        ({Number(manualValue) >= Number(purchasePrice) ? '+' : ''}
+                        {((Number(manualValue) - Number(purchasePrice)) / 10000).toLocaleString('ko-KR')}만원)
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {realEstateType === 'jeonse' && (
