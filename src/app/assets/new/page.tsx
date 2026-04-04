@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { classifyAsset } from '@/lib/classification';
 import { StockSearch } from '@/components/stock-search';
+import { CryptoSearch } from '@/components/crypto-search';
+import { KbSearch } from '@/components/kb-search';
 import type { StockSearchResult } from '@/app/api/search/route';
+import type { CryptoMarket } from '@/app/api/crypto-markets/route';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +56,7 @@ const LIABILITY_TYPES: { value: LiabilityCategory; label: string }[] = [
   { value: 'mortgage', label: '주택담보대출' },
   { value: 'credit', label: '신용대출' },
   { value: 'student', label: '학자금대출' },
+  { value: 'deposit', label: '임대보증금 (전세)' },
   { value: 'other', label: '기타 대출' },
 ];
 
@@ -69,6 +73,8 @@ export default function NewAssetPage() {
   const [ticker, setTicker] = useState('');
   const [stockName, setStockName] = useState('');
   const [stockPriceSource, setStockPriceSource] = useState<'krx' | 'yahoo_finance'>('krx');
+  const [stockCurrentPrice, setStockCurrentPrice] = useState<number | null>(null);
+  const [purchasePrice, setPurchasePrice] = useState('');
   const [quantity, setQuantity] = useState('');
   const [accountType, setAccountType] = useState('other');
 
@@ -77,6 +83,10 @@ export default function NewAssetPage() {
   const [address, setAddress] = useState('');
   const [manualValue, setManualValue] = useState('');
   const [leaseExpiry, setLeaseExpiry] = useState('');
+  const [kbComplexId, setKbComplexId] = useState('');
+  const [useManualPrice, setUseManualPrice] = useState(false);
+  const [hasJeonseTenant, setHasJeonseTenant] = useState(false);
+  const [jeonseDeposit, setJeonseDeposit] = useState('');
 
   // Cash/pension fields
   const [amount, setAmount] = useState('');
@@ -134,14 +144,16 @@ export default function NewAssetPage() {
             assetData.subcategory = realEstateType;
             assetData.address = address || null;
             assetData.manual_value = Number(manualValue) || 0;
-            assetData.price_source = 'manual';
+            assetData.price_source = kbComplexId ? 'kb_real_estate' : 'manual';
             assetData.asset_class = 'alternative';
             assetData.lease_expiry = leaseExpiry || null;
+            assetData.kb_complex_id = kbComplexId || null;
             break;
           case 'stock':
             assetData.name = stockName || ticker;
             assetData.ticker = ticker;
             assetData.quantity = Number(quantity) || 0;
+            assetData.purchase_price = purchasePrice ? Number(purchasePrice) : null;
             assetData.subcategory = accountType;
             assetData.brokerage = brokerage || null;
             assetData.price_source = stockPriceSource;
@@ -178,7 +190,19 @@ export default function NewAssetPage() {
             break;
         }
 
-        await supabase.from('assets').insert(assetData);
+        const { data: insertedAsset } = await supabase.from('assets').insert(assetData).select('id').single();
+
+        // 전세보증금 부채 자동 생성
+        if (entryType === 'real_estate' && hasJeonseTenant && jeonseDeposit && insertedAsset) {
+          await supabase.from('liabilities').insert({
+            household_id: householdId,
+            owner_user_id: user.id,
+            category: 'deposit',
+            name: `전세보증금 (${name})`,
+            balance: Number(jeonseDeposit) || 0,
+            linked_asset_id: insertedAsset.id,
+          });
+        }
       }
 
       router.push('/dashboard');
@@ -251,41 +275,78 @@ export default function NewAssetPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>이름</Label>
-                <Input
-                  placeholder="예: 구의7단지 현대아파트"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  maxLength={100}
+
+              {/* KB시세 검색 또는 수동 입력 */}
+              {!useManualPrice ? (
+                <KbSearch
+                  realEstateType={realEstateType}
+                  onPriceFound={(price, complexId, complexName, complexAddress) => {
+                    setManualValue(String(price));
+                    setKbComplexId(complexId);
+                    if (!name) setName(complexName);
+                    if (!address) setAddress(complexAddress);
+                  }}
+                  onManualFallback={() => setUseManualPrice(true)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>주소</Label>
-                <Input
-                  placeholder="서울시 광진구..."
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  maxLength={200}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>
-                  {realEstateType === 'jeonse' ? '전세보증금' : '호가 (현재 시세)'}
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={manualValue}
-                  onChange={(e) => setManualValue(e.target.value)}
-                  required
-                  min={0}
-                />
-                <p className="text-xs text-muted-foreground">
-                  네이버 부동산/호갱노노 참고
-                </p>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label>이름</Label>
+                      <button
+                        type="button"
+                        onClick={() => setUseManualPrice(false)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        KB시세 검색으로 돌아가기
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="예: 구의7단지 현대아파트"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>주소</Label>
+                    <Input
+                      placeholder="서울시 광진구..."
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>
+                      {realEstateType === 'jeonse' ? '전세보증금' : '호가 (현재 시세)'}
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={manualValue}
+                      onChange={(e) => setManualValue(e.target.value)}
+                      required
+                      min={0}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* KB시세로 이름/주소 자동 입력된 경우 표시 */}
+              {!useManualPrice && name && (
+                <div className="space-y-1.5">
+                  <Label>이름</Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    maxLength={100}
+                  />
+                </div>
+              )}
+
               {realEstateType === 'jeonse' && (
                 <div className="space-y-1.5">
                   <Label>전세 만기일</Label>
@@ -294,6 +355,37 @@ export default function NewAssetPage() {
                     value={leaseExpiry}
                     onChange={(e) => setLeaseExpiry(e.target.value)}
                   />
+                </div>
+              )}
+
+              {/* 전세 놓음 (소유 매매만) */}
+              {realEstateType === 'owned' && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasJeonseTenant}
+                      onChange={(e) => setHasJeonseTenant(e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    <span className="text-sm">전세 놓은 부동산 (전세보증금을 부채로 추가)</span>
+                  </label>
+                  {hasJeonseTenant && (
+                    <div className="space-y-1.5 pl-6">
+                      <Label>받은 전세보증금 (원)</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={jeonseDeposit}
+                        onChange={(e) => setJeonseDeposit(e.target.value)}
+                        required
+                        min={0}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        부채에 자동 등록되며 해당 부동산과 연결됩니다
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -331,8 +423,29 @@ export default function NewAssetPage() {
                     setTicker(result.ticker);
                     setStockName(result.name);
                     setStockPriceSource(result.priceSource);
+                    setStockCurrentPrice(result.currentPrice);
                   }}
                 />
+              </div>
+              {stockCurrentPrice && (
+                <div className="rounded-lg bg-muted/30 border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">현재 시세</p>
+                  <p className="text-lg font-bold">{stockCurrentPrice.toLocaleString('ko-KR')}원</p>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>매수 단가 (원)</Label>
+                <Input
+                  type="number"
+                  placeholder="매수 시 단가를 입력하세요"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value)}
+                  min={0}
+                  step="any"
+                />
+                <p className="text-xs text-muted-foreground">
+                  수익률 계산에 사용됩니다
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>수량 (주)</Label>
@@ -418,13 +531,11 @@ export default function NewAssetPage() {
           {entryType === 'crypto' && (
             <>
               <div className="space-y-1.5">
-                <Label>종목</Label>
-                <Input
-                  placeholder="예: BTC, ETH, XRP"
-                  value={cryptoTicker}
-                  onChange={(e) => setCryptoTicker(e.target.value)}
-                  required
-                  maxLength={20}
+                <Label>종목 검색</Label>
+                <CryptoSearch
+                  onSelect={(result: CryptoMarket) => {
+                    setCryptoTicker(result.ticker);
+                  }}
                 />
               </div>
               <div className="space-y-1.5">

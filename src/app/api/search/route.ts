@@ -6,6 +6,7 @@ export interface StockSearchResult {
   ticker: string;
   market: string; // KOSPI, KOSDAQ, NASDAQ, NYSE
   priceSource: 'krx' | 'yahoo_finance';
+  currentPrice: number | null; // 현재가 (KRW)
 }
 
 export async function GET(request: Request) {
@@ -42,6 +43,12 @@ export async function GET(request: Request) {
       const items = data?.result?.items ?? data?.result ?? [];
 
       for (const item of items) {
+        // Parse price from search result if available
+        const rawPrice = item.closePrice ?? item.nowVal ?? item.compareToPreviousClosePrice ?? null;
+        const currentPrice = rawPrice
+          ? Number(String(rawPrice).replace(/,/g, ''))
+          : null;
+
         // 국내주식
         if (item.reutersCode?.endsWith('.KS') || item.reutersCode?.endsWith('.KQ')) {
           const market = item.reutersCode.endsWith('.KS') ? 'KOSPI' : 'KOSDAQ';
@@ -50,6 +57,7 @@ export async function GET(request: Request) {
             ticker: item.code ?? item.itemCode ?? '',
             market,
             priceSource: 'krx',
+            currentPrice: !isNaN(currentPrice ?? NaN) ? currentPrice : null,
           });
         }
         // 해외주식
@@ -66,6 +74,7 @@ export async function GET(request: Request) {
               ticker,
               market,
               priceSource: 'yahoo_finance',
+              currentPrice: !isNaN(currentPrice ?? NaN) ? currentPrice : null,
             });
           }
         }
