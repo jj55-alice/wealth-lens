@@ -39,6 +39,11 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [saving, setSaving] = useState(false);
   const [asset, setAsset] = useState<Asset | null>(null);
 
+  // Owner fields
+  const [members, setMembers] = useState<Array<{ user_id: string; email: string; nickname: string | null; role: string }>>([]);
+  const [ownerUserId, setOwnerUserId] = useState('');
+  const [ownership, setOwnership] = useState<'personal' | 'shared'>('personal');
+
   // Editable fields
   const [name, setName] = useState('');
   const [manualValue, setManualValue] = useState('');
@@ -76,6 +81,16 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
       setBrokerage(data.brokerage ?? '');
       setAddress(data.address ?? '');
       setLeaseExpiry(data.lease_expiry ?? '');
+      setOwnerUserId(data.owner_user_id);
+      setOwnership((data.ownership as 'personal' | 'shared') ?? 'personal');
+
+      // Load household members
+      try {
+        const membersRes = await fetch('/api/invite');
+        const membersData = await membersRes.json();
+        if (Array.isArray(membersData.members)) setMembers(membersData.members);
+      } catch { /* ignore */ }
+
       setLoading(false);
     }
     load();
@@ -89,6 +104,8 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
     try {
       const supabase = createClient();
       const updates: Record<string, unknown> = { name };
+      if (ownerUserId) updates.owner_user_id = ownerUserId;
+      updates.ownership = ownership;
 
       switch (asset.category) {
         case 'real_estate':
@@ -159,6 +176,50 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
 
       <main className="mx-auto max-w-lg px-6 py-8">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 소유자 (구성원 2명일 때) */}
+          {members.length > 1 && (
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <div className="space-y-1.5">
+                <Label>소유자</Label>
+                <div className="flex gap-2">
+                  {members.map((m) => (
+                    <button
+                      key={m.user_id}
+                      type="button"
+                      onClick={() => setOwnerUserId(m.user_id)}
+                      className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        ownerUserId === m.user_id
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      {m.nickname || m.email.split('@')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>소유 형태</Label>
+                <div className="flex gap-2">
+                  {([['personal', '개인 소유'], ['shared', '공동 소유']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setOwnership(val)}
+                      className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        ownership === val
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 이름 (공통) */}
           <div className="space-y-1.5">
             <Label>이름</Label>
