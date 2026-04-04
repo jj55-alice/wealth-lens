@@ -23,6 +23,10 @@ export default function SettingsPage() {
   const [goalDividend, setGoalDividend] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userNickname, setUserNickname] = useState('');
+  const [upbitAccessKey, setUpbitAccessKey] = useState('');
+  const [upbitSecretKey, setUpbitSecretKey] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -41,6 +45,8 @@ export default function SettingsPage() {
           setHouseholdName(data.household.name ?? '');
           setGoalNetWorth(data.household.goal_net_worth ? String(data.household.goal_net_worth) : '');
           setGoalDividend(data.household.goal_annual_dividend ? String(data.household.goal_annual_dividend) : '');
+          setUpbitAccessKey(data.household.upbit_access_key ?? '');
+          setUpbitSecretKey(data.household.upbit_secret_key ?? '');
         }
         if (data.user) {
           setUserEmail(data.user.email ?? '');
@@ -71,6 +77,8 @@ export default function SettingsPage() {
           name: householdName,
           goal_net_worth: goalNetWorth ? Number(goalNetWorth) : null,
           goal_annual_dividend: goalDividend ? Number(goalDividend) : null,
+          upbit_access_key: upbitAccessKey || null,
+          upbit_secret_key: upbitSecretKey || null,
         }),
       });
       setSaved(true);
@@ -79,6 +87,23 @@ export default function SettingsPage() {
       // ignore
     }
     setSaving(false);
+  }
+
+  async function handleUpbitSync() {
+    setSyncing(true);
+    setSyncResult('');
+    try {
+      const res = await fetch('/api/upbit-sync', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncResult(data.error || '동기화 실패');
+      } else {
+        setSyncResult(`${data.synced}개 코인 동기화 완료`);
+      }
+    } catch {
+      setSyncResult('네트워크 오류');
+    }
+    setSyncing(false);
   }
 
   async function handleLogout() {
@@ -182,6 +207,53 @@ export default function SettingsPage() {
                 </p>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Upbit 연동 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Upbit 연동</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Upbit API 키를 입력하면 보유 코인을 자동으로 가져옵니다.
+              API 키는 Upbit 앱 &gt; 마이페이지 &gt; Open API 관리에서 발급하세요.
+              (자산조회 권한만 필요)
+            </p>
+            <div className="space-y-1.5">
+              <Label>Access Key</Label>
+              <Input
+                type="password"
+                value={upbitAccessKey}
+                onChange={(e) => setUpbitAccessKey(e.target.value)}
+                placeholder="Access Key"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Secret Key</Label>
+              <Input
+                type="password"
+                value={upbitSecretKey}
+                onChange={(e) => setUpbitSecretKey(e.target.value)}
+                placeholder="Secret Key"
+              />
+            </div>
+            {upbitAccessKey && upbitSecretKey && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleUpbitSync}
+                disabled={syncing}
+              >
+                {syncing ? '동기화 중...' : '₿ 코인 동기화'}
+              </Button>
+            )}
+            {syncResult && (
+              <p className={`text-xs ${syncResult.includes('완료') ? 'text-emerald-500' : 'text-red-500'}`}>
+                {syncResult}
+              </p>
+            )}
           </CardContent>
         </Card>
 

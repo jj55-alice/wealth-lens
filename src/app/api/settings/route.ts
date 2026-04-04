@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: membership } = await supabaseAdmin
     .from('household_members')
-    .select('household_id, role, households(id, name, goal_net_worth, goal_annual_dividend)')
+    .select('household_id, role, households(id, name, goal_net_worth, goal_annual_dividend, upbit_access_key, upbit_secret_key)')
     .eq('user_id', user.id)
     .single();
 
@@ -27,6 +27,8 @@ export async function GET() {
     name: string;
     goal_net_worth: number | null;
     goal_annual_dividend: number | null;
+    upbit_access_key: string | null;
+    upbit_secret_key: string | null;
   };
 
   return NextResponse.json({
@@ -60,6 +62,8 @@ export async function PUT(request: Request) {
   if ('name' in body) updates.name = body.name;
   if ('goal_net_worth' in body) updates.goal_net_worth = body.goal_net_worth || null;
   if ('goal_annual_dividend' in body) updates.goal_annual_dividend = body.goal_annual_dividend || null;
+  if ('upbit_access_key' in body) updates.upbit_access_key = body.upbit_access_key || null;
+  if ('upbit_secret_key' in body) updates.upbit_secret_key = body.upbit_secret_key || null;
 
   const { error } = await supabaseAdmin
     .from('households')
