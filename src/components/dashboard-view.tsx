@@ -16,7 +16,6 @@ import { LeaseAlerts } from '@/components/lease-alerts';
 import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
-import { createClient } from '@/lib/supabase/client';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 interface Props {
@@ -28,12 +27,6 @@ interface Props {
 
 export function DashboardView({ household, assets, liabilities, exchangeRate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
-
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-  }
 
   async function handleRefreshPrices() {
     setRefreshing(true);
@@ -66,8 +59,14 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
               {refreshing ? '갱신 중...' : '↻ 시세 갱신'}
             </Button>
             <Link
+              href="/history"
+              className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
+            >
+              📊 히스토리
+            </Link>
+            <Link
               href="/stocks"
-              className="rounded-lg border border-border px-4 py-2 text-xs font-medium hover:bg-muted/50 transition-colors"
+              className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
             >
               📈 주식
             </Link>
@@ -77,14 +76,12 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
             >
               + 자산 등록
             </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-xs text-muted-foreground"
+            <Link
+              href="/settings"
+              className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
             >
-              로그아웃
-            </Button>
+              설정
+            </Link>
           </div>
         </div>
       </header>
@@ -127,6 +124,22 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
                     totalLiabilities={totalLiabilities}
                   />
                 </div>
+
+                {/* 목표 달성률 */}
+                {household.goal_net_worth && household.goal_net_worth > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                      <span>목표 {formatKRW(household.goal_net_worth)}</span>
+                      <span>{Math.min(100, Math.round((netWorth / household.goal_net_worth) * 100))}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{ width: `${Math.min(100, (netWorth / household.goal_net_worth) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <Separator className="my-4" />
 
