@@ -1,9 +1,7 @@
 import type { PriceResult } from './types';
 
-// 한국은행 환율 API (USD/KRW)
-// 폴백: 고정값 사용
-
-const FALLBACK_USD_KRW = 1380;
+// 환율 API (USD/KRW)
+const FALLBACK_USD_KRW = 1460;
 
 let cachedRate: { rate: number; fetchedAt: number } | null = null;
 
@@ -13,34 +11,51 @@ export async function getUsdKrwRate(): Promise<number> {
     return cachedRate.rate;
   }
 
+  // 방법 1: open.er-api.com (무료, 안정적)
   try {
-    // 네이버 환율 API
+    const res = await fetch('https://open.er-api.com/v6/latest/USD', {
+      next: { revalidate: 3600 },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const rate = data?.rates?.KRW;
+      if (rate && !isNaN(Number(rate))) {
+        cachedRate = { rate: Number(rate), fetchedAt: Date.now() };
+        return cachedRate.rate;
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  // 방법 2: 네이버 finance 페이지 스크래핑 (폴백)
+  try {
     const res = await fetch(
-      'https://m.stock.naver.com/front-api/v1/marketIndex/prices?category=exchange&reutersCode=FX_USDKRW',
+      'https://finance.naver.com/marketindex/exchangeDailyQuote.naver?marketindexCd=FX_USDKRW',
       {
-        next: { revalidate: 3600 },
         headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
         },
       },
     );
 
-    if (!res.ok) throw new Error(`Exchange rate API error: ${res.status}`);
-
-    const data = await res.json();
-    const rate = data?.result?.[0]?.closePrice;
-
-    if (rate) {
-      const numericRate = typeof rate === 'string' ? Number(rate.replace(/,/g, '')) : Number(rate);
-      if (!isNaN(numericRate)) {
-        cachedRate = { rate: numericRate, fetchedAt: Date.now() };
-        return numericRate;
+    if (res.ok) {
+      const html = await res.text();
+      const match = html.match(/<td class="num">([0-9,\.]+)<\/td>/);
+      if (match) {
+        const rate = Number(match[1].replace(/,/g, ''));
+        if (!isNaN(rate)) {
+          cachedRate = { rate, fetchedAt: Date.now() };
+          return cachedRate.rate;
+        }
       }
     }
-    throw new Error('Could not parse rate');
   } catch {
-    return cachedRate?.rate ?? FALLBACK_USD_KRW;
+    // fall through
   }
+
+  return cachedRate?.rate ?? FALLBACK_USD_KRW;
 }
 
 export function convertUsdToKrw(priceResult: PriceResult, usdKrwRate: number): PriceResult {
