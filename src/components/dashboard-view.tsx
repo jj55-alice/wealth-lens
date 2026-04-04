@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatKRW, formatChange, formatPercent } from '@/lib/format';
@@ -19,6 +21,17 @@ interface Props {
 }
 
 export function DashboardView({ household, assets, liabilities }: Props) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefreshPrices() {
+    setRefreshing(true);
+    try {
+      await fetch('/api/prices', { method: 'POST' });
+      window.location.reload();
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const totalAssets = assets.reduce((sum, a) => sum + a.current_value, 0);
   const totalLiabilities = liabilities.reduce((sum, l) => sum + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
@@ -31,6 +44,15 @@ export function DashboardView({ household, assets, liabilities }: Props) {
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <h1 className="text-lg font-semibold">Wealth Lens</h1>
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefreshPrices}
+              disabled={refreshing}
+              className="text-xs"
+            >
+              {refreshing ? '갱신 중...' : '↻ 시세 갱신'}
+            </Button>
             <Link
               href="/assets/new"
               className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"

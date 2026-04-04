@@ -2,11 +2,15 @@ import type { PriceSource } from '@/types/database';
 import type { PriceAdapter, PriceResult } from './types';
 import { upbitAdapter } from './upbit';
 import { goldAdapter } from './gold';
+import { naverAdapter } from './naver';
+import { yahooAdapter } from './yahoo';
+import { getUsdKrwRate, convertUsdToKrw } from './bok';
 
 const adapters: Record<string, PriceAdapter> = {
   upbit: upbitAdapter,
   gold_exchange: goldAdapter,
-  // TODO: yahoo (해외주식), krx/naver (국내주식), bok (환율)
+  krx: naverAdapter,
+  yahoo_finance: yahooAdapter,
 };
 
 export async function fetchPrice(
@@ -17,7 +21,15 @@ export async function fetchPrice(
   if (!adapter) return null;
 
   try {
-    return await adapter.fetchPrice(ticker);
+    const result = await adapter.fetchPrice(ticker);
+
+    // Convert USD to KRW for foreign stocks
+    if (result.currency === 'USD') {
+      const rate = await getUsdKrwRate();
+      return convertUsdToKrw(result, rate);
+    }
+
+    return result;
   } catch {
     return null;
   }
@@ -44,8 +56,16 @@ export async function fetchPricesBatch(
 
       try {
         const batch = await adapter.fetchBatch(tickers);
+
+        // Convert USD prices for yahoo_finance
+        let usdKrwRate: number | null = null;
         for (const [ticker, result] of batch) {
-          results.set(ticker, result);
+          if (result.currency === 'USD') {
+            if (!usdKrwRate) usdKrwRate = await getUsdKrwRate();
+            results.set(ticker, convertUsdToKrw(result, usdKrwRate));
+          } else {
+            results.set(ticker, result);
+          }
         }
       } catch {
         // Source failed entirely, skip
@@ -56,3 +76,5 @@ export async function fetchPricesBatch(
   await Promise.allSettled(promises);
   return results;
 }
+
+export { getUsdKrwRate } from './bok';
