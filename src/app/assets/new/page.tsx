@@ -271,6 +271,15 @@ export default function NewAssetPage() {
         }
       }
 
+      // 주식/코인 등록 후 시세 갱신 (대시보드에서 바로 평가액이 보이도록)
+      if (entryType === 'stock' || entryType === 'crypto') {
+        try {
+          await fetch('/api/prices', { method: 'POST' });
+        } catch {
+          // 시세 갱신 실패해도 등록은 완료
+        }
+      }
+
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
