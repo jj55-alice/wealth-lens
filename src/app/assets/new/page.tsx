@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { classifyAsset } from '@/lib/classification';
+import { StockSearch } from '@/components/stock-search';
+import type { StockSearchResult } from '@/app/api/search/route';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +67,8 @@ export default function NewAssetPage() {
 
   // Stock fields
   const [ticker, setTicker] = useState('');
+  const [stockName, setStockName] = useState('');
+  const [stockPriceSource, setStockPriceSource] = useState<'krx' | 'yahoo_finance'>('krx');
   const [quantity, setQuantity] = useState('');
   const [accountType, setAccountType] = useState('other');
 
@@ -135,13 +139,13 @@ export default function NewAssetPage() {
             assetData.lease_expiry = leaseExpiry || null;
             break;
           case 'stock':
-            assetData.name = ticker;
+            assetData.name = stockName || ticker;
             assetData.ticker = ticker;
             assetData.quantity = Number(quantity) || 0;
             assetData.subcategory = accountType;
             assetData.brokerage = brokerage || null;
-            assetData.price_source = 'krx';
-            assetData.asset_class = classifyAsset(ticker, 'stock', ticker);
+            assetData.price_source = stockPriceSource;
+            assetData.asset_class = classifyAsset(stockName || ticker, 'stock', ticker);
             break;
           case 'pension':
             assetData.name = name;
@@ -321,13 +325,13 @@ export default function NewAssetPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>종목명 또는 티커</Label>
-                <Input
-                  placeholder="예: 삼성전자, TIGER S&P500"
-                  value={ticker}
-                  onChange={(e) => setTicker(e.target.value)}
-                  required
-                  maxLength={100}
+                <Label>종목 검색</Label>
+                <StockSearch
+                  onSelect={(result: StockSearchResult) => {
+                    setTicker(result.ticker);
+                    setStockName(result.name);
+                    setStockPriceSource(result.priceSource);
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
