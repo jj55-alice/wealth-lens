@@ -104,6 +104,7 @@ export default function NewAssetPage() {
   const [stockPriceSource, setStockPriceSource] = useState<'krx' | 'yahoo_finance'>('krx');
   const [stockCurrentPrice, setStockCurrentPrice] = useState<number | null>(null);
   const [purchasePrice, setPurchasePrice] = useState('');
+  const [purchaseCurrency, setPurchaseCurrency] = useState<'KRW' | 'USD'>('KRW');
   const [quantity, setQuantity] = useState('');
   const [accountType, setAccountType] = useState('other');
 
@@ -180,16 +181,30 @@ export default function NewAssetPage() {
             assetData.asset_class = 'alternative';
             assetData.lease_expiry = leaseExpiry || null;
             break;
-          case 'stock':
+          case 'stock': {
             assetData.name = stockName || ticker;
             assetData.ticker = ticker;
             assetData.quantity = Number(quantity) || 0;
-            if (purchasePrice) assetData.purchase_price = Number(purchasePrice);
+            if (purchasePrice) {
+              let pp = Number(purchasePrice);
+              // 달러 입력이면 실시간 환율로 변환
+              if (purchaseCurrency === 'USD' && stockPriceSource === 'yahoo_finance') {
+                try {
+                  const rateRes = await fetch('/api/exchange-rate');
+                  const rateData = await rateRes.json();
+                  if (rateData.rate) pp = Math.round(pp * rateData.rate);
+                } catch {
+                  pp = Math.round(pp * 1400); // 폴백
+                }
+              }
+              assetData.purchase_price = pp;
+            }
             assetData.subcategory = accountType;
             assetData.brokerage = brokerage || null;
             assetData.price_source = stockPriceSource;
             assetData.asset_class = classifyAsset(stockName || ticker, 'stock', ticker);
             break;
+          }
           case 'pension':
             assetData.name = name;
             assetData.manual_value = Number(amount) || 0;
@@ -536,6 +551,7 @@ export default function NewAssetPage() {
                     setTicker(result.ticker);
                     setStockName(result.name);
                     setStockPriceSource(result.priceSource);
+                    setPurchaseCurrency(result.priceSource === 'yahoo_finance' ? 'USD' : 'KRW');
                     setStockCurrentPrice(result.currentPrice);
                   }}
                 />
@@ -547,17 +563,48 @@ export default function NewAssetPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <Label>매수 단가 (원)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>매수 단가</Label>
+                  {stockPriceSource === 'yahoo_finance' && (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPurchaseCurrency('USD')}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                          purchaseCurrency === 'USD'
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border text-muted-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        $ 달러
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPurchaseCurrency('KRW')}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                          purchaseCurrency === 'KRW'
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border text-muted-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        ₩ 원화
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <Input
                   type="number"
-                  placeholder="매수 시 단가를 입력하세요"
+                  placeholder={purchaseCurrency === 'USD' ? '예: 198.50' : '매수 시 단가를 입력하세요'}
                   value={purchasePrice}
                   onChange={(e) => setPurchasePrice(e.target.value)}
                   min={0}
                   step="any"
                 />
                 <p className="text-xs text-muted-foreground">
-                  수익률 계산에 사용됩니다
+                  {purchaseCurrency === 'USD' && purchasePrice
+                    ? `환율 적용 시 약 ${(Number(purchasePrice) * 1400).toLocaleString('ko-KR')}원 (저장 시 실시간 환율 적용)`
+                    : '수익률 계산에 사용됩니다'
+                  }
                 </p>
               </div>
               <div className="space-y-1.5">
