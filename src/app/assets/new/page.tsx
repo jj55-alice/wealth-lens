@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { classifyAsset } from '@/lib/classification';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,9 +92,97 @@ export default function NewAssetPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    // TODO: Supabase insert
-    await new Promise((r) => setTimeout(r, 500));
-    router.push('/dashboard');
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('로그인이 필요합니다');
+
+      // Get user's household
+      const { data: membership } = await supabase
+        .from('household_members')
+        .select('household_id')
+        .eq('user_id', user.id)
+        .single();
+      if (!membership) throw new Error('가구를 찾을 수 없습니다');
+
+      const householdId = membership.household_id;
+
+      if (entryType === 'liability') {
+        await supabase.from('liabilities').insert({
+          household_id: householdId,
+          owner_user_id: user.id,
+          category: liabilityType,
+          name,
+          balance: Number(balance) || 0,
+          interest_rate: interestRate ? Number(interestRate) : null,
+        });
+      } else {
+        const assetData: Record<string, unknown> = {
+          household_id: householdId,
+          owner_user_id: user.id,
+          category: entryType,
+        };
+
+        switch (entryType) {
+          case 'real_estate':
+            assetData.name = name;
+            assetData.subcategory = realEstateType;
+            assetData.address = address || null;
+            assetData.manual_value = Number(manualValue) || 0;
+            assetData.price_source = 'manual';
+            assetData.asset_class = 'alternative';
+            assetData.lease_expiry = leaseExpiry || null;
+            break;
+          case 'stock':
+            assetData.name = ticker;
+            assetData.ticker = ticker;
+            assetData.quantity = Number(quantity) || 0;
+            assetData.subcategory = accountType;
+            assetData.brokerage = brokerage || null;
+            assetData.price_source = 'krx';
+            assetData.asset_class = classifyAsset(ticker, 'stock', ticker);
+            break;
+          case 'pension':
+            assetData.name = name;
+            assetData.manual_value = Number(amount) || 0;
+            assetData.brokerage = brokerage || null;
+            assetData.price_source = 'manual';
+            assetData.asset_class = 'domestic_equity';
+            break;
+          case 'gold':
+            assetData.name = '금 현물';
+            assetData.quantity = Number(grams) || 0;
+            assetData.brokerage = brokerage || null;
+            assetData.price_source = 'gold_exchange';
+            assetData.asset_class = 'commodity';
+            break;
+          case 'crypto':
+            assetData.name = cryptoTicker.toUpperCase();
+            assetData.ticker = cryptoTicker.toUpperCase();
+            assetData.quantity = Number(cryptoQuantity) || 0;
+            assetData.brokerage = brokerage || null;
+            assetData.price_source = 'upbit';
+            assetData.asset_class = 'alternative';
+            break;
+          case 'cash':
+            assetData.name = name;
+            assetData.manual_value = Number(amount) || 0;
+            assetData.brokerage = brokerage || null;
+            assetData.price_source = 'manual';
+            assetData.asset_class = 'cash_equiv';
+            break;
+        }
+
+        await supabase.from('assets').insert(assetData);
+      }
+
+      router.push('/dashboard');
+      router.refresh();
+    } catch (err) {
+      console.error('Save error:', err);
+      setSaving(false);
+    }
   }
 
   if (!entryType) {

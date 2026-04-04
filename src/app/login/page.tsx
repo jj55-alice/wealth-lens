@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,14 +23,57 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    // TODO: Supabase auth integration
-    // For now, go straight to dashboard
-    router.push('/dashboard');
+    try {
+      if (isSignUp) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (signUpError) throw signUpError;
+
+        // After signup, create household
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: household } = await supabase
+            .from('households')
+            .insert({ name: '우리 가구' })
+            .select()
+            .single();
+
+          if (household) {
+            await supabase.from('household_members').insert({
+              household_id: household.id,
+              user_id: user.id,
+              role: 'owner',
+            });
+          }
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) throw signInError;
+      }
+
+      router.push('/dashboard');
+      router.refresh();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '오류가 발생했습니다';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleKakaoLogin() {
-    // TODO: Supabase Kakao OAuth
-    router.push('/dashboard');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) setError(error.message);
   }
 
   return (
@@ -86,9 +131,7 @@ export default function LoginPage() {
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-red-500">{error}</p>
-            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? '처리 중...' : isSignUp ? '가입하기' : '로그인'}
