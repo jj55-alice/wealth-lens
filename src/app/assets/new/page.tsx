@@ -344,26 +344,41 @@ export default function NewAssetPage() {
             <div className="space-y-3 rounded-lg border border-border p-3">
               <div className="space-y-1.5">
                 <Label>소유자</Label>
-                <Select value={ownerUserId} onValueChange={(v) => v && setOwnerUserId(v)}>
-                  <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.user_id} value={m.user_id}>
-                        {m.nickname || m.email} {m.role === 'owner' ? '(관리자)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  {members.map((m) => (
+                    <button
+                      key={m.user_id}
+                      type="button"
+                      onClick={() => setOwnerUserId(m.user_id)}
+                      className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        ownerUserId === m.user_id
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      {m.nickname || m.email.split('@')[0]}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>소유 형태</Label>
-                <Select value={ownership} onValueChange={(v) => v && setOwnership(v as 'personal' | 'shared')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="personal">개인 소유</SelectItem>
-                    <SelectItem value="shared">공동 소유</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  {([['personal', '개인 소유'], ['shared', '공동 소유']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setOwnership(val)}
+                      className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        ownership === val
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
