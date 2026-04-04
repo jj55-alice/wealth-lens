@@ -237,14 +237,62 @@ export default function NewAssetPage() {
             break;
         }
 
-        const { data: insertedAsset, error: insertError } = await supabase
-          .from('assets')
-          .insert(assetData)
-          .select('id')
-          .single();
+        // 같은 종목이 이미 있으면 합치기 (수량 합산 + 평균 매수가)
+        let insertedAsset: { id: string } | null = null;
+        const assetTicker = assetData.ticker as string | undefined;
 
-        if (insertError) {
-          throw new Error(insertError.message);
+        if (assetTicker && (entryType === 'stock' || entryType === 'crypto')) {
+          const { data: existing } = await supabase
+            .from('assets')
+            .select('id, quantity, purchase_price')
+            .eq('household_id', householdId)
+            .eq('ticker', assetTicker)
+            .eq('category', entryType)
+            .maybeSingle();
+
+          if (existing) {
+            const oldQty = Number(existing.quantity) || 0;
+            const newQty = Number(assetData.quantity) || 0;
+            const totalQty = oldQty + newQty;
+
+            // 가중평균 매수가 계산
+            const oldPP = Number(existing.purchase_price) || 0;
+            const newPP = Number(assetData.purchase_price) || 0;
+            let avgPP: number | null = null;
+            if (oldPP > 0 && newPP > 0) {
+              avgPP = Math.round((oldPP * oldQty + newPP * newQty) / totalQty);
+            } else if (newPP > 0) {
+              avgPP = newPP;
+            } else if (oldPP > 0) {
+              avgPP = oldPP;
+            }
+
+            const updates: Record<string, unknown> = { quantity: totalQty };
+            if (avgPP !== null) updates.purchase_price = avgPP;
+            if (assetData.brokerage) updates.brokerage = assetData.brokerage;
+
+            const { error: updateError } = await supabase
+              .from('assets')
+              .update(updates)
+              .eq('id', existing.id);
+
+            if (updateError) throw new Error(updateError.message);
+            insertedAsset = { id: existing.id };
+          }
+        }
+
+        // 기존 종목이 없으면 새로 등록
+        if (!insertedAsset) {
+          const { data: newAsset, error: insertError } = await supabase
+            .from('assets')
+            .insert(assetData)
+            .select('id')
+            .single();
+
+          if (insertError) {
+            throw new Error(insertError.message);
+          }
+          insertedAsset = newAsset;
         }
 
         // 전세보증금 부채 자동 생성
