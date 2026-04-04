@@ -26,6 +26,7 @@ export type PriceSource =
   | 'upbit'
   | 'gold_exchange'
   | 'yahoo_finance'
+  | 'kb_real_estate'
   | 'manual';
 
 export type AssetClass =
@@ -40,6 +41,7 @@ export type LiabilityCategory =
   | 'mortgage'
   | 'credit'
   | 'student'
+  | 'deposit'
   | 'other';
 
 export type Ownership = 'personal' | 'shared';
@@ -74,6 +76,8 @@ export interface Asset {
   asset_class: AssetClass | null;
   brokerage: string | null;
   address: string | null;
+  purchase_price: number | null; // cost basis per unit
+  kb_complex_id: string | null; // KB real estate complex ID
   lease_expiry: string | null; // ISO date, for jeonse
   created_at: string;
   updated_at: string;
@@ -114,6 +118,15 @@ export interface HouseholdSnapshot {
   total_liabilities: number;
   net_worth: number;
   snapshot_date: string;
+}
+
+export interface DividendCache {
+  ticker: string;
+  dividend_per_share: number;
+  ex_date: string;
+  payment_date: string | null;
+  frequency: 'quarterly' | 'semi_annual' | 'annual' | null;
+  fetched_at: string;
 }
 
 // Computed types for the dashboard

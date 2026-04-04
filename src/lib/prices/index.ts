@@ -4,6 +4,7 @@ import { upbitAdapter } from './upbit';
 import { goldAdapter } from './gold';
 import { naverAdapter } from './naver';
 import { yahooAdapter } from './yahoo';
+import { kbAdapter } from './kb';
 import { getUsdKrwRate, convertUsdToKrw } from './bok';
 
 const adapters: Record<string, PriceAdapter> = {
@@ -11,6 +12,7 @@ const adapters: Record<string, PriceAdapter> = {
   gold_exchange: goldAdapter,
   krx: naverAdapter,
   yahoo_finance: yahooAdapter,
+  kb_real_estate: kbAdapter,
 };
 
 export async function fetchPrice(

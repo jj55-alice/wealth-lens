@@ -8,6 +8,7 @@ import type { StockSearchResult } from '@/app/api/search/route';
 interface Props {
   onSelect: (result: StockSearchResult) => void;
   placeholder?: string;
+  showMarketFilter?: boolean;
 }
 
 const MARKET_COLORS: Record<string, string> = {
@@ -18,18 +19,32 @@ const MARKET_COLORS: Record<string, string> = {
   AMEX: 'bg-red-500/20 text-red-400',
 };
 
-export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: 삼성전자, AAPL)' }: Props) {
+const MARKET_FILTERS = [
+  { value: 'all', label: '전체' },
+  { value: 'domestic', label: '국내', markets: ['KOSPI', 'KOSDAQ'] },
+  { value: 'foreign', label: '해외', markets: ['NASDAQ', 'NYSE', 'AMEX'] },
+];
+
+function formatPrice(price: number | null): string {
+  if (price === null) return '';
+  return price.toLocaleString('ko-KR') + '원';
+}
+
+export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: 삼성전자, AAPL)', showMarketFilter = true }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<StockSearchResult[]>([]);
+  const [filteredResults, setFilteredResults] = useState<StockSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StockSearchResult | null>(null);
+  const [marketFilter, setMarketFilter] = useState('all');
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!query || query.length < 1 || selected) {
       setResults([]);
+      setFilteredResults([]);
       setOpen(false);
       return;
     }
@@ -51,6 +66,17 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
 
     return () => clearTimeout(debounceRef.current);
   }, [query, selected]);
+
+  // Apply market filter
+  useEffect(() => {
+    if (marketFilter === 'all') {
+      setFilteredResults(results);
+    } else {
+      const filter = MARKET_FILTERS.find((f) => f.value === marketFilter);
+      const allowedMarkets = filter?.markets ?? [];
+      setFilteredResults(results.filter((r) => allowedMarkets.includes(r.market)));
+    }
+  }, [results, marketFilter]);
 
   // Close on click outside
   useEffect(() => {
@@ -77,7 +103,26 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative space-y-2">
+      {showMarketFilter && (
+        <div className="flex gap-1">
+          {MARKET_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setMarketFilter(f.value)}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                marketFilter === f.value
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border text-muted-foreground hover:bg-muted/50'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="relative">
         <Input
           aria-label="종목 검색"
@@ -105,9 +150,17 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
         )}
       </div>
 
-      {open && results.length > 0 && (
+      {/* 선택된 종목 현재가 표시 */}
+      {selected?.currentPrice && (
+        <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">현재가: </span>
+          <span className="font-semibold">{formatPrice(selected.currentPrice)}</span>
+        </div>
+      )}
+
+      {open && filteredResults.length > 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-card shadow-lg max-h-60 overflow-y-auto">
-          {results.map((result, i) => (
+          {filteredResults.map((result, i) => (
             <button
               key={`${result.ticker}-${i}`}
               type="button"
@@ -118,12 +171,19 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
                 <p className="text-sm font-medium">{result.name}</p>
                 <p className="text-xs text-muted-foreground">{result.ticker}</p>
               </div>
-              <Badge
-                variant="secondary"
-                className={`text-[10px] ${MARKET_COLORS[result.market] ?? ''}`}
-              >
-                {result.market}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {result.currentPrice && (
+                  <span className="text-xs text-muted-foreground">
+                    {formatPrice(result.currentPrice)}
+                  </span>
+                )}
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] ${MARKET_COLORS[result.market] ?? ''}`}
+                >
+                  {result.market}
+                </Badge>
+              </div>
             </button>
           ))}
         </div>
