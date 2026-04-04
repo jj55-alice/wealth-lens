@@ -1,0 +1,136 @@
+// Database types for Wealth Lens
+// Matches Supabase schema defined in supabase/migrations/
+
+export type AssetCategory =
+  | 'real_estate'
+  | 'stock'
+  | 'pension'
+  | 'gold'
+  | 'crypto'
+  | 'cash'
+  | 'other';
+
+export type AssetSubcategory =
+  | 'owned'
+  | 'jeonse'
+  | 'pension'
+  | 'isa'
+  | 'irp'
+  | 'espp'
+  | 'savings'
+  | 'cma'
+  | 'other';
+
+export type PriceSource =
+  | 'krx'
+  | 'upbit'
+  | 'gold_exchange'
+  | 'yahoo_finance'
+  | 'manual';
+
+export type AssetClass =
+  | 'domestic_equity'
+  | 'foreign_equity'
+  | 'bond'
+  | 'commodity'
+  | 'cash_equiv'
+  | 'alternative';
+
+export type LiabilityCategory =
+  | 'mortgage'
+  | 'credit'
+  | 'student'
+  | 'other';
+
+export type Ownership = 'personal' | 'shared';
+
+export type HouseholdRole = 'owner' | 'member';
+
+export interface Household {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface HouseholdMember {
+  household_id: string;
+  user_id: string;
+  role: HouseholdRole;
+  created_at: string;
+}
+
+export interface Asset {
+  id: string;
+  household_id: string;
+  owner_user_id: string;
+  category: AssetCategory;
+  subcategory: AssetSubcategory | null;
+  ownership: Ownership;
+  name: string;
+  ticker: string | null;
+  quantity: number | null;
+  manual_value: number | null;
+  price_source: PriceSource;
+  asset_class: AssetClass | null;
+  brokerage: string | null;
+  address: string | null;
+  lease_expiry: string | null; // ISO date, for jeonse
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Liability {
+  id: string;
+  household_id: string;
+  owner_user_id: string;
+  category: LiabilityCategory;
+  name: string;
+  balance: number;
+  interest_rate: number | null;
+  linked_asset_id: string | null;
+  ownership: Ownership;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssetSnapshot {
+  id: string;
+  asset_id: string;
+  value: number;
+  snapshot_date: string;
+}
+
+export interface LiabilitySnapshot {
+  id: string;
+  liability_id: string;
+  balance: number;
+  snapshot_date: string;
+}
+
+export interface HouseholdSnapshot {
+  id: string;
+  household_id: string;
+  total_assets: number;
+  total_liabilities: number;
+  net_worth: number;
+  snapshot_date: string;
+}
+
+// Computed types for the dashboard
+export interface AssetWithPrice extends Asset {
+  current_price: number | null;
+  current_value: number;
+  price_updated_at: string | null;
+  is_stale: boolean;
+}
+
+export interface DashboardData {
+  household: Household;
+  assets: AssetWithPrice[];
+  liabilities: Liability[];
+  total_assets: number;
+  total_liabilities: number;
+  net_worth: number;
+  net_worth_change_week: number | null;
+  net_worth_change_month: number | null;
+}
