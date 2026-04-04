@@ -51,6 +51,8 @@ export type HouseholdRole = 'owner' | 'member';
 export interface Household {
   id: string;
   name: string;
+  goal_net_worth: number | null;
+  goal_annual_dividend: number | null;
   created_at: string;
 }
 
