@@ -104,6 +104,7 @@ export async function GET() {
     memberDetails.push({
       ...m,
       email: userData?.user?.email ?? '알 수 없음',
+      nickname: userData?.user?.user_metadata?.nickname ?? null,
     });
   }
 

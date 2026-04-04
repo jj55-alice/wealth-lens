@@ -14,6 +14,7 @@ export default function LoginPage() {
   const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +29,9 @@ export default function LoginPage() {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: { nickname: nickname || email.split('@')[0] },
+          },
         });
         if (signUpError) throw signUpError;
       } else {
@@ -89,6 +93,19 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
+            {isSignUp && (
+              <div className="space-y-1.5">
+                <Label htmlFor="nickname">닉네임</Label>
+                <Input
+                  id="nickname"
+                  placeholder="예: 앨리스"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  maxLength={20}
+                  required
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="email">이메일</Label>
               <Input
