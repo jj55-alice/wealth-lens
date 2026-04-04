@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
 export interface StockSearchResult {
@@ -8,6 +9,13 @@ export interface StockSearchResult {
 }
 
 export async function GET(request: Request) {
+  // Auth check: prevent unauthenticated proxy abuse
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: '인증 필요' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q')?.trim();
 

@@ -1,13 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { fetchPricesBatch } from '@/lib/prices';
+import { getSupabaseUrl, getServiceRoleKey } from '@/lib/env';
 import { NextResponse } from 'next/server';
 import type { PriceSource } from '@/types/database';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 export async function POST() {
   const supabase = await createServerClient();
@@ -18,6 +14,8 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: '인증 필요' }, { status: 401 });
   }
+
+  const supabaseAdmin = createClient(getSupabaseUrl(), getServiceRoleKey());
 
   // Get user's household
   const { data: membership } = await supabaseAdmin

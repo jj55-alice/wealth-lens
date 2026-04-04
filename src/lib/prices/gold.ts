@@ -20,9 +20,14 @@ export const goldAdapter: PriceAdapter = {
 
       if (!res.ok) throw new Error('Gold API failed');
 
-      // 실제 연동 시 파싱 로직 필요
-      // 현재는 폴백값 사용
-      throw new Error('Not implemented - using fallback');
+      // 실제 연동 시 파싱 로직 필요. 현재는 폴백값 사용.
+      return {
+        price: FALLBACK_GOLD_PRICE_PER_GRAM,
+        currency: 'KRW' as const,
+        timestamp: new Date(),
+        source: 'gold_exchange' as const,
+        stale: true,
+      };
     } catch {
       return {
         price: FALLBACK_GOLD_PRICE_PER_GRAM,

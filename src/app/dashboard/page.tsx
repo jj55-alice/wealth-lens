@@ -19,7 +19,6 @@ export default function DashboardPage() {
       const supabase = createClient();
 
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('Auth user:', user?.id, 'error:', authError?.message);
 
       if (!user) {
         router.push('/login');
@@ -33,7 +32,6 @@ export default function DashboardPage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      console.log('Membership:', membership, 'error:', memberError?.message);
 
       if (!membership?.households) {
         // Create household via API (uses service_role to bypass RLS)

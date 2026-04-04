@@ -1,20 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetchPricesBatch } from '@/lib/prices';
+import { getSupabaseUrl, getServiceRoleKey, getCronSecret } from '@/lib/env';
 import { NextResponse } from 'next/server';
 import type { PriceSource } from '@/types/database';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 // Daily cron: fetch prices, create snapshots, check milestones
 // Trigger via Vercel cron (vercel.json) at 18:00 KST
 export async function GET(request: Request) {
+  const cronSecret = getCronSecret();
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const supabaseAdmin = createClient(getSupabaseUrl(), getServiceRoleKey());
 
   const today = new Date().toISOString().split('T')[0];
   let pricesUpdated = 0;
@@ -71,61 +70,69 @@ export async function GET(request: Request) {
       (priceCache ?? []).map((p) => [p.ticker, Number(p.price)]),
     );
 
+    // Fetch ALL assets and liabilities in bulk (avoid N+1)
+    const { data: allAssetRows } = await supabaseAdmin
+      .from('assets')
+      .select('id, household_id, ticker, quantity, manual_value');
+    const { data: allLiabilityRows } = await supabaseAdmin
+      .from('liabilities')
+      .select('id, household_id, balance');
+
+    const assetsByHH = new Map<string, typeof allAssetRows>();
+    for (const a of allAssetRows ?? []) {
+      const list = assetsByHH.get(a.household_id) ?? [];
+      list.push(a);
+      assetsByHH.set(a.household_id, list);
+    }
+    const liabilitiesByHH = new Map<string, typeof allLiabilityRows>();
+    for (const l of allLiabilityRows ?? []) {
+      const list = liabilitiesByHH.get(l.household_id) ?? [];
+      list.push(l);
+      liabilitiesByHH.set(l.household_id, list);
+    }
+
+    const assetSnapshotBatch: { asset_id: string; value: number; snapshot_date: string }[] = [];
+    const liabilitySnapshotBatch: { liability_id: string; balance: number; snapshot_date: string }[] = [];
+    const householdSnapshotBatch: { household_id: string; total_assets: number; total_liabilities: number; net_worth: number; snapshot_date: string }[] = [];
+
     for (const hh of households) {
-      // Get assets
-      const { data: assets } = await supabaseAdmin
-        .from('assets')
-        .select('id, ticker, quantity, manual_value')
-        .eq('household_id', hh.id);
-
+      const assets = assetsByHH.get(hh.id) ?? [];
       let totalAssets = 0;
-      for (const a of assets ?? []) {
-        if (a.manual_value) {
-          totalAssets += Number(a.manual_value);
-        } else if (a.ticker && a.quantity) {
-          const price = priceLookup.get(a.ticker);
-          if (price) totalAssets += price * Number(a.quantity);
-        }
-
-        // Asset snapshot
+      for (const a of assets) {
         const value = a.manual_value
           ? Number(a.manual_value)
           : (a.ticker && a.quantity ? (priceLookup.get(a.ticker) ?? 0) * Number(a.quantity) : 0);
-
-        await supabaseAdmin.from('asset_snapshots').insert({
-          asset_id: a.id,
-          value,
-          snapshot_date: today,
-        });
+        totalAssets += value;
+        assetSnapshotBatch.push({ asset_id: a.id, value, snapshot_date: today });
       }
 
-      // Get liabilities
-      const { data: liabilities } = await supabaseAdmin
-        .from('liabilities')
-        .select('id, balance')
-        .eq('household_id', hh.id);
-
+      const liabilities = liabilitiesByHH.get(hh.id) ?? [];
       let totalLiabilities = 0;
-      for (const l of liabilities ?? []) {
-        totalLiabilities += Number(l.balance);
-
-        await supabaseAdmin.from('liability_snapshots').insert({
-          liability_id: l.id,
-          balance: Number(l.balance),
-          snapshot_date: today,
-        });
+      for (const l of liabilities) {
+        const bal = Number(l.balance);
+        totalLiabilities += bal;
+        liabilitySnapshotBatch.push({ liability_id: l.id, balance: bal, snapshot_date: today });
       }
 
-      // Household snapshot
-      await supabaseAdmin.from('household_snapshots').insert({
+      householdSnapshotBatch.push({
         household_id: hh.id,
         total_assets: totalAssets,
         total_liabilities: totalLiabilities,
         net_worth: totalAssets - totalLiabilities,
         snapshot_date: today,
       });
-
       snapshotsCreated++;
+    }
+
+    // Batch insert all snapshots (3 queries instead of N*M)
+    if (assetSnapshotBatch.length > 0) {
+      await supabaseAdmin.from('asset_snapshots').upsert(assetSnapshotBatch, { onConflict: 'asset_id,snapshot_date', ignoreDuplicates: true });
+    }
+    if (liabilitySnapshotBatch.length > 0) {
+      await supabaseAdmin.from('liability_snapshots').upsert(liabilitySnapshotBatch, { onConflict: 'liability_id,snapshot_date', ignoreDuplicates: true });
+    }
+    if (householdSnapshotBatch.length > 0) {
+      await supabaseAdmin.from('household_snapshots').upsert(householdSnapshotBatch, { onConflict: 'household_id,snapshot_date', ignoreDuplicates: true });
     }
   }
 

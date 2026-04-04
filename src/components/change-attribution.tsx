@@ -1,6 +1,6 @@
 'use client';
 
-import { formatKRW, formatChange } from '@/lib/format';
+import { formatKRW } from '@/lib/format';
 import type { AssetWithPrice } from '@/types/database';
 
 interface Props {

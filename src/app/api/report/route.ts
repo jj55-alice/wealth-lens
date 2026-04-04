@@ -1,36 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { getSupabaseUrl, getServiceRoleKey, getCronSecret } from '@/lib/env';
+import { formatKRW } from '@/lib/format';
 import { NextResponse } from 'next/server';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
-
-function formatKRW(value: number): string {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? '-' : '';
-  if (abs >= 1_0000_0000) {
-    const eok = Math.floor(abs / 1_0000_0000);
-    const man = Math.floor((abs % 1_0000_0000) / 1_0000);
-    return man > 0 ? `${sign}${eok}억 ${man.toLocaleString()}만` : `${sign}${eok}억`;
-  }
-  if (abs >= 1_0000) return `${sign}${Math.floor(abs / 1_0000).toLocaleString()}만`;
-  return `${sign}${abs.toLocaleString()}`;
-}
-
-// Cron endpoint: called weekly to send reports
-// In production, trigger via Supabase cron or Vercel cron
 export async function POST(request: Request) {
-  // Verify cron secret
+  const cronSecret = getCronSecret();
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const supabaseAdmin = createClient(getSupabaseUrl(), getServiceRoleKey());
+  const resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
 
   if (!resend) {
     return NextResponse.json({ error: 'Resend not configured' }, { status: 500 });
