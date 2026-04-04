@@ -30,24 +30,6 @@ export default function LoginPage() {
           password,
         });
         if (signUpError) throw signUpError;
-
-        // After signup, create household
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: household } = await supabase
-            .from('households')
-            .insert({ name: '우리 가구' })
-            .select()
-            .single();
-
-          if (household) {
-            await supabase.from('household_members').insert({
-              household_id: household.id,
-              user_id: user.id,
-              role: 'owner',
-            });
-          }
-        }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -56,8 +38,7 @@ export default function LoginPage() {
         if (signInError) throw signInError;
       }
 
-      router.push('/dashboard');
-      router.refresh();
+      window.location.href = '/dashboard';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '오류가 발생했습니다';
       setError(message);

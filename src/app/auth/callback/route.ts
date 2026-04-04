@@ -10,35 +10,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Check if user has a household, create one if not
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: membership } = await supabase
-          .from('household_members')
-          .select('household_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!membership) {
-          const { data: household } = await supabase
-            .from('households')
-            .insert({ name: '우리 가구' })
-            .select()
-            .single();
-
-          if (household) {
-            await supabase.from('household_members').insert({
-              household_id: household.id,
-              user_id: user.id,
-              role: 'owner',
-            });
-          }
-        }
-      }
-
+      // Household creation happens on dashboard load via /api/household
       return NextResponse.redirect(`${origin}/dashboard`);
     }
   }
