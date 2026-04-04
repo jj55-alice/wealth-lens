@@ -42,7 +42,8 @@ export function AllocationPieChart({ assets }: Props) {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="h-[200px]">
+    <div>
+      <div className="h-[180px]">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -69,11 +70,12 @@ export function AllocationPieChart({ assets }: Props) {
           />
         </PieChart>
       </ResponsiveContainer>
-      <div className="flex flex-wrap justify-center gap-3 mt-2">
+      </div>
+      <div className="flex flex-wrap justify-center gap-3 mt-3">
         {data.map((item, i) => (
           <div key={item.name} className="flex items-center gap-1.5 text-xs">
             <div
-              className="w-2.5 h-2.5 rounded-full"
+              className="w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: COLORS[i % COLORS.length] }}
             />
             <span className="text-muted-foreground">{item.name}</span>
