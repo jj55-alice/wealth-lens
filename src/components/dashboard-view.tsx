@@ -12,6 +12,9 @@ import { AllocationPieChart } from '@/components/allocation-pie-chart';
 import { AssetList } from '@/components/asset-list';
 import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';
+import { LeaseAlerts } from '@/components/lease-alerts';
+import { MilestoneCheck } from '@/components/milestone-check';
+import { createClient } from '@/lib/supabase/client';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 interface Props {
@@ -22,6 +25,12 @@ interface Props {
 
 export function DashboardView({ household, assets, liabilities }: Props) {
   const [refreshing, setRefreshing] = useState(false);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  }
 
   async function handleRefreshPrices() {
     setRefreshing(true);
@@ -59,6 +68,14 @@ export function DashboardView({ household, assets, liabilities }: Props) {
             >
               + 자산 등록
             </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-xs text-muted-foreground"
+            >
+              로그아웃
+            </Button>
           </div>
         </div>
       </header>
@@ -124,6 +141,12 @@ export function DashboardView({ household, assets, liabilities }: Props) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Lease Alerts */}
+            <LeaseAlerts assets={assets} />
+
+            {/* Milestone Progress */}
+            <MilestoneCheck netWorth={netWorth} />
 
             {/* Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
