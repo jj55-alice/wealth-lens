@@ -62,6 +62,7 @@ const LIABILITY_TYPES: { value: LiabilityCategory; label: string }[] = [
 interface HouseholdMember {
   user_id: string;
   email: string;
+  nickname: string | null;
   role: string;
 }
 
@@ -348,7 +349,7 @@ export default function NewAssetPage() {
                   <SelectContent>
                     {members.map((m) => (
                       <SelectItem key={m.user_id} value={m.user_id}>
-                        {m.email} {m.role === 'owner' ? '(관리자)' : ''}
+                        {m.nickname || m.email} {m.role === 'owner' ? '(관리자)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
