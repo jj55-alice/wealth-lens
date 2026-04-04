@@ -14,6 +14,7 @@ import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';
 import { LeaseAlerts } from '@/components/lease-alerts';
 import { MilestoneCheck } from '@/components/milestone-check';
+import { ChangeAttribution } from '@/components/change-attribution';
 import { createClient } from '@/lib/supabase/client';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
@@ -167,6 +168,16 @@ export function DashboardView({ household, assets, liabilities }: Props) {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Top Assets */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">자산 비중 TOP 5</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChangeAttribution assets={assets} />
+              </CardContent>
+            </Card>
 
             {/* Asset List */}
             <Card>

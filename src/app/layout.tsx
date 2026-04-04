@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Wealth Lens — 우리 집 자산 한눈에',
   description: '부부가 함께 보는 가구 자산 대시보드',
+  manifest: '/manifest.json',
+  themeColor: '#0a0a0a',
 };
 
 export default function RootLayout({
