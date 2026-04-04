@@ -18,6 +18,7 @@ interface Member {
   user_id: string;
   role: string;
   email: string;
+  nickname: string | null;
   created_at: string;
 }
 
@@ -109,7 +110,8 @@ export function HouseholdMembers() {
             className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30"
           >
             <div>
-              <p className="text-sm">{m.email}</p>
+              <p className="text-sm">{m.nickname || m.email}</p>
+              {m.nickname && <p className="text-xs text-muted-foreground">{m.email}</p>}
             </div>
             <Badge variant="outline" className="text-[10px]">
               {m.role === 'owner' ? '관리자' : '구성원'}

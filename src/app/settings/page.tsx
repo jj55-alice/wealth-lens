@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const [goalNetWorth, setGoalNetWorth] = useState('');
   const [goalDividend, setGoalDividend] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [userNickname, setUserNickname] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -31,6 +32,7 @@ export default function SettingsPage() {
         router.push('/login');
         return;
       }
+      setUserNickname(user.user_metadata?.nickname ?? '');
 
       try {
         const res = await fetch('/api/settings');
@@ -55,6 +57,13 @@ export default function SettingsPage() {
     setSaving(true);
     setSaved(false);
     try {
+      // 닉네임 업데이트 (Supabase Auth user_metadata)
+      const supabase = createClient();
+      await supabase.auth.updateUser({
+        data: { nickname: userNickname },
+      });
+
+      // 가구 설정 업데이트
       await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -110,6 +119,15 @@ export default function SettingsPage() {
             <CardTitle className="text-sm">계정</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>닉네임</Label>
+              <Input
+                value={userNickname}
+                onChange={(e) => setUserNickname(e.target.value)}
+                placeholder="닉네임"
+                maxLength={20}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label>이메일</Label>
               <Input value={userEmail} disabled className="bg-muted" />
