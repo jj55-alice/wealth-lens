@@ -25,6 +25,24 @@ const MARKET_FILTERS = [
   { value: 'foreign', label: '해외', markets: ['NASDAQ', 'NYSE', 'AMEX'] },
 ];
 
+// 자주 거래되는 주요 종목 (포커스 시 기본 표시)
+const POPULAR_STOCKS: StockSearchResult[] = [
+  { name: '삼성전자', ticker: '005930', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: 'SK하이닉스', ticker: '000660', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: 'NAVER', ticker: '035420', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: '카카오', ticker: '035720', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: '현대자동차', ticker: '005380', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: 'LG에너지솔루션', ticker: '373220', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: '삼성바이오로직스', ticker: '207940', market: 'KOSPI', priceSource: 'krx', currentPrice: null },
+  { name: 'Apple', ticker: 'AAPL', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+  { name: 'Microsoft', ticker: 'MSFT', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+  { name: 'NVIDIA', ticker: 'NVDA', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+  { name: 'Tesla', ticker: 'TSLA', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+  { name: 'Amazon', ticker: 'AMZN', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+  { name: 'Alphabet (Google)', ticker: 'GOOGL', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+  { name: 'Meta', ticker: 'META', market: 'NASDAQ', priceSource: 'yahoo_finance', currentPrice: null },
+];
+
 function formatPrice(price: number | null): string {
   if (price === null) return '';
   return price.toLocaleString('ko-KR') + '원';
@@ -33,19 +51,25 @@ function formatPrice(price: number | null): string {
 export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: 삼성전자, AAPL)', showMarketFilter = true }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<StockSearchResult[]>([]);
-  const [filteredResults, setFilteredResults] = useState<StockSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StockSearchResult | null>(null);
   const [marketFilter, setMarketFilter] = useState('all');
+  const [priceUsd, setPriceUsd] = useState<number | null>(null);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 검색 결과 가져오기
   useEffect(() => {
-    if (!query || query.length < 1 || selected) {
+    if (selected) {
       setResults([]);
-      setFilteredResults([]);
-      setOpen(false);
+      return;
+    }
+
+    // 검색어가 없으면 인기 종목 표시
+    if (!query) {
+      setResults(POPULAR_STOCKS);
       return;
     }
 
@@ -67,18 +91,15 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
     return () => clearTimeout(debounceRef.current);
   }, [query, selected]);
 
-  // Apply market filter
-  useEffect(() => {
-    if (marketFilter === 'all') {
-      setFilteredResults(results);
-    } else {
-      const filter = MARKET_FILTERS.find((f) => f.value === marketFilter);
-      const allowedMarkets = filter?.markets ?? [];
-      setFilteredResults(results.filter((r) => allowedMarkets.includes(r.market)));
-    }
-  }, [results, marketFilter]);
+  // 마켓 필터 적용
+  const displayResults = (() => {
+    if (marketFilter === 'all') return results;
+    const filter = MARKET_FILTERS.find((f) => f.value === marketFilter);
+    const allowedMarkets = filter?.markets ?? [];
+    return results.filter((r) => allowedMarkets.includes(r.market));
+  })();
 
-  // Close on click outside
+  // 클릭 외부 닫기
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -89,17 +110,46 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  function handleSelect(result: StockSearchResult) {
+  async function handleSelect(result: StockSearchResult) {
     setSelected(result);
     setQuery(`${result.name} (${result.ticker})`);
     setOpen(false);
+    setPriceUsd(null);
+    setExchangeRate(null);
+
+    // 실시간 시세 조회 (달러/원화 정보 포함)
+    try {
+      const res = await fetch(
+        `/api/prices/quote?ticker=${encodeURIComponent(result.ticker)}&source=${result.priceSource}`
+      );
+      const data = await res.json();
+      if (data.price) {
+        const updated = { ...result, currentPrice: data.price };
+        setSelected(updated);
+        if (data.priceUsd) setPriceUsd(data.priceUsd);
+        if (data.exchangeRate) setExchangeRate(data.exchangeRate);
+        onSelect(updated);
+        return;
+      }
+    } catch {
+      // 조회 실패해도 선택은 유지
+    }
+
     onSelect(result);
   }
 
   function handleClear() {
     setSelected(null);
     setQuery('');
-    setResults([]);
+    setResults(POPULAR_STOCKS);
+    setPriceUsd(null);
+    setExchangeRate(null);
+  }
+
+  function handleFocus() {
+    if (!selected) {
+      setOpen(true);
+    }
   }
 
   return (
@@ -131,7 +181,9 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
           onChange={(e) => {
             setQuery(e.target.value);
             if (selected) setSelected(null);
+            setOpen(true);
           }}
+          onFocus={handleFocus}
           maxLength={100}
         />
         {selected && (
@@ -153,14 +205,36 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
       {/* 선택된 종목 현재가 표시 */}
       {selected?.currentPrice && (
         <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <span className="text-muted-foreground">현재가: </span>
-          <span className="font-semibold">{formatPrice(selected.currentPrice)}</span>
+          {priceUsd ? (
+            <div className="space-y-0.5">
+              <div>
+                <span className="text-muted-foreground">현재가: </span>
+                <span className="font-semibold">${priceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-muted-foreground ml-1">({formatPrice(selected.currentPrice)})</span>
+              </div>
+              {exchangeRate && (
+                <div className="text-xs text-muted-foreground">
+                  환율: ${1} = {exchangeRate.toLocaleString('ko-KR')}원
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <span className="text-muted-foreground">현재가: </span>
+              <span className="font-semibold">{formatPrice(selected.currentPrice)}</span>
+            </div>
+          )}
         </div>
       )}
 
-      {open && filteredResults.length > 0 && (
+      {open && displayResults.length > 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-card shadow-lg max-h-60 overflow-y-auto">
-          {filteredResults.map((result, i) => (
+          {!query && (
+            <div className="px-3 py-1.5 text-[10px] text-muted-foreground uppercase tracking-wider border-b border-border">
+              주요 종목
+            </div>
+          )}
+          {displayResults.map((result, i) => (
             <button
               key={`${result.ticker}-${i}`}
               type="button"
@@ -186,6 +260,11 @@ export function StockSearch({ onSelect, placeholder = '종목명 검색 (예: �
               </div>
             </button>
           ))}
+          {!query && (
+            <div className="px-3 py-2 text-xs text-muted-foreground border-t border-border">
+              검색어를 입력하면 더 많은 종목을 찾을 수 있습니다
+            </div>
+          )}
         </div>
       )}
     </div>

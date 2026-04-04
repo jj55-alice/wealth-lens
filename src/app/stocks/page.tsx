@@ -15,6 +15,7 @@ export default function StocksPage() {
   const [loading, setLoading] = useState(true);
   const [stocks, setStocks] = useState<AssetWithPrice[]>([]);
   const [dividends, setDividends] = useState<DividendInfo[]>([]);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -88,11 +89,16 @@ export default function StocksPage() {
         })
       );
 
-      // Fetch dividends
+      // Fetch dividends + exchange rate
       try {
-        const divRes = await fetch('/api/dividends');
+        const [divRes, rateRes] = await Promise.all([
+          fetch('/api/dividends'),
+          fetch('/api/exchange-rate'),
+        ]);
         const divData = await divRes.json();
         if (Array.isArray(divData)) setDividends(divData);
+        const rateData = await rateRes.json();
+        if (rateData.rate) setExchangeRate(rateData.rate);
       } catch {
         // ignore
       }
@@ -155,7 +161,7 @@ export default function StocksPage() {
             </Link>
           </div>
         ) : (
-          <StockPortfolio stocks={stocks} dividends={dividends} />
+          <StockPortfolio stocks={stocks} dividends={dividends} exchangeRate={exchangeRate} />
         )}
       </main>
     </div>

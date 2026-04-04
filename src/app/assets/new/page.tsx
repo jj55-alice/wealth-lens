@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client';
 import { classifyAsset } from '@/lib/classification';
 import { StockSearch } from '@/components/stock-search';
 import { CryptoSearch } from '@/components/crypto-search';
-import { KbSearch } from '@/components/kb-search';
 import type { StockSearchResult } from '@/app/api/search/route';
 import type { CryptoMarket } from '@/app/api/crypto-markets/route';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,6 +63,7 @@ export default function NewAssetPage() {
   const router = useRouter();
   const [entryType, setEntryType] = useState<EntryType | ''>('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   // Common fields
   const [name, setName] = useState('');
@@ -144,16 +144,15 @@ export default function NewAssetPage() {
             assetData.subcategory = realEstateType;
             assetData.address = address || null;
             assetData.manual_value = Number(manualValue) || 0;
-            assetData.price_source = kbComplexId ? 'kb_real_estate' : 'manual';
+            assetData.price_source = 'manual';
             assetData.asset_class = 'alternative';
             assetData.lease_expiry = leaseExpiry || null;
-            assetData.kb_complex_id = kbComplexId || null;
             break;
           case 'stock':
             assetData.name = stockName || ticker;
             assetData.ticker = ticker;
             assetData.quantity = Number(quantity) || 0;
-            assetData.purchase_price = purchasePrice ? Number(purchasePrice) : null;
+            if (purchasePrice) assetData.purchase_price = Number(purchasePrice);
             assetData.subcategory = accountType;
             assetData.brokerage = brokerage || null;
             assetData.price_source = stockPriceSource;
@@ -190,11 +189,20 @@ export default function NewAssetPage() {
             break;
         }
 
-        const { data: insertedAsset } = await supabase.from('assets').insert(assetData).select('id').single();
+        const { data: insertedAsset, error: insertError } = await supabase
+          .from('assets')
+          .insert(assetData)
+          .select('id')
+          .single();
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
 
         // 전세보증금 부채 자동 생성
         if (entryType === 'real_estate' && hasJeonseTenant && jeonseDeposit && insertedAsset) {
-          await supabase.from('liabilities').insert({
+          // deposit 카테고리가 DB에 없을 수 있으므로 other로 폴백
+          const depositInsert = await supabase.from('liabilities').insert({
             household_id: householdId,
             owner_user_id: user.id,
             category: 'deposit',
@@ -202,13 +210,26 @@ export default function NewAssetPage() {
             balance: Number(jeonseDeposit) || 0,
             linked_asset_id: insertedAsset.id,
           });
+          if (depositInsert.error) {
+            // deposit 카테고리 미지원 시 other로 재시도
+            await supabase.from('liabilities').insert({
+              household_id: householdId,
+              owner_user_id: user.id,
+              category: 'other',
+              name: `전세보증금 (${name})`,
+              balance: Number(jeonseDeposit) || 0,
+              linked_asset_id: insertedAsset.id,
+            });
+          }
         }
       }
 
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
+      const message = err instanceof Error ? err.message : '저장에 실패했습니다';
       console.error('Save error:', err);
+      setError(message);
       setSaving(false);
     }
   }
@@ -276,76 +297,64 @@ export default function NewAssetPage() {
                 </Select>
               </div>
 
-              {/* KB시세 검색 또는 수동 입력 */}
-              {!useManualPrice ? (
-                <KbSearch
-                  realEstateType={realEstateType}
-                  onPriceFound={(price, complexId, complexName, complexAddress) => {
-                    setManualValue(String(price));
-                    setKbComplexId(complexId);
-                    if (!name) setName(complexName);
-                    if (!address) setAddress(complexAddress);
-                  }}
-                  onManualFallback={() => setUseManualPrice(true)}
+              <div className="space-y-1.5">
+                <Label>이름</Label>
+                <Input
+                  placeholder="예: 래미안 블레스티지, 반포자이"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  maxLength={100}
                 />
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label>이름</Label>
-                      <button
-                        type="button"
-                        onClick={() => setUseManualPrice(false)}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        KB시세 검색으로 돌아가기
-                      </button>
-                    </div>
-                    <Input
-                      placeholder="예: 구의7단지 현대아파트"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      maxLength={100}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>주소</Label>
-                    <Input
-                      placeholder="서울시 광진구..."
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      maxLength={200}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>
-                      {realEstateType === 'jeonse' ? '전세보증금' : '호가 (현재 시세)'}
-                    </Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={manualValue}
-                      onChange={(e) => setManualValue(e.target.value)}
-                      required
-                      min={0}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* KB시세로 이름/주소 자동 입력된 경우 표시 */}
-              {!useManualPrice && name && (
-                <div className="space-y-1.5">
-                  <Label>이름</Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    maxLength={100}
-                  />
+              </div>
+              <div className="space-y-1.5">
+                <Label>주소</Label>
+                <Input
+                  placeholder="서울시 강남구..."
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  maxLength={200}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>
+                  {realEstateType === 'jeonse' ? '전세보증금 (원)' : '현재 시세 (원)'}
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={manualValue}
+                  onChange={(e) => setManualValue(e.target.value)}
+                  required
+                  min={0}
+                />
+                <div className="flex gap-2 mt-1">
+                  <a
+                    href="https://kbland.kr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    KB시세 확인 →
+                  </a>
+                  <a
+                    href="https://hogangnono.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    호갱노노 →
+                  </a>
+                  <a
+                    href="https://new.land.naver.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    네이버 부동산 →
+                  </a>
                 </div>
-              )}
+              </div>
 
               {realEstateType === 'jeonse' && (
                 <div className="space-y-1.5">
@@ -650,6 +659,12 @@ export default function NewAssetPage() {
                 />
               </div>
             </>
+          )}
+
+          {error && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-500">
+              {error}
+            </div>
           )}
 
           <div className="pt-2">

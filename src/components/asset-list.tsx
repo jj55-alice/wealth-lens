@@ -12,7 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { formatKRW } from '@/lib/format';
+import { formatKRW, formatUsdKrw } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
 import type { AssetWithPrice, AssetCategory } from '@/types/database';
 
@@ -38,9 +38,10 @@ const CATEGORY_ORDER: AssetCategory[] = [
 
 interface Props {
   assets: AssetWithPrice[];
+  exchangeRate?: number | null;
 }
 
-export function AssetList({ assets }: Props) {
+export function AssetList({ assets, exchangeRate }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<AssetWithPrice | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -100,7 +101,10 @@ export function AssetList({ assets }: Props) {
                           {asset.quantity && asset.current_price && (
                             <span className="text-xs text-muted-foreground">
                               {asset.quantity}주 x{' '}
-                              {asset.current_price.toLocaleString()}
+                              {asset.price_source === 'yahoo_finance' && exchangeRate
+                                ? `$${(asset.current_price / exchangeRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : asset.current_price.toLocaleString()
+                              }
                             </span>
                           )}
                           {asset.is_stale && (
@@ -132,9 +136,14 @@ export function AssetList({ assets }: Props) {
                           삭제
                         </Button>
                       </div>
-                      <p className="text-sm font-medium tabular-nums">
-                        {formatKRW(asset.current_value)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-sm font-medium tabular-nums">
+                          {asset.price_source === 'yahoo_finance' && exchangeRate
+                            ? formatUsdKrw(asset.current_value, exchangeRate)
+                            : formatKRW(asset.current_value)
+                          }
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}

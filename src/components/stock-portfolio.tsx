@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { formatKRW, formatPercent } from '@/lib/format';
+import { formatKRW, formatPercent, formatUsdKrw, formatUsd } from '@/lib/format';
 import { StockTreemap } from '@/components/stock-treemap';
 import { DividendCalendar } from '@/components/dividend-calendar';
 import type { AssetWithPrice } from '@/types/database';
@@ -11,9 +11,10 @@ import type { DividendInfo } from '@/lib/dividends';
 interface Props {
   stocks: AssetWithPrice[];
   dividends: DividendInfo[];
+  exchangeRate?: number | null;
 }
 
-export function StockPortfolio({ stocks, dividends }: Props) {
+export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
   // 총 투자금 계산
   const totalInvested = stocks.reduce((sum, s) => {
     const pp = (s as unknown as { purchase_price: number | null }).purchase_price;
@@ -109,7 +110,12 @@ export function StockPortfolio({ stocks, dividends }: Props) {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold">{formatKRW(s.current_value)}</p>
+                    <p className="text-sm font-semibold">
+                      {s.price_source === 'yahoo_finance' && exchangeRate
+                        ? formatUsdKrw(s.current_value, exchangeRate)
+                        : formatKRW(s.current_value)
+                      }
+                    </p>
                     {s.returnRate !== null ? (
                       <p className={`text-xs ${s.returnRate >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {s.returnRate >= 0 ? '+' : ''}{s.returnRate.toFixed(1)}%
