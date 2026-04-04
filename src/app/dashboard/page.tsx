@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -111,7 +112,15 @@ export default function DashboardPage() {
       <header className="border-b border-border px-6 py-4">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <h1 className="text-lg font-semibold">Wealth Lens</h1>
-          <Badge variant="secondary">데모 모드</Badge>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/assets/new"
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              + 자산 등록
+            </Link>
+            <Badge variant="secondary">데모 모드</Badge>
+          </div>
         </div>
       </header>
 
