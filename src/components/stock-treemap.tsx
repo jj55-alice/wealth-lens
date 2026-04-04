@@ -36,10 +36,10 @@ function CustomContent(props: Record<string, unknown>) {
     returnRate: number;
   };
 
-  if (width < 40 || height < 30) return null;
+  if (width < 40 || height < 30 || returnRate === undefined) return null;
 
-  const color = getColor(returnRate);
-  const sign = returnRate >= 0 ? '+' : '';
+  const color = getColor(returnRate ?? 0);
+  const sign = (returnRate ?? 0) >= 0 ? '+' : '';
 
   return (
     <g>
@@ -72,7 +72,7 @@ function CustomContent(props: Record<string, unknown>) {
         fontSize={11}
         opacity={0.9}
       >
-        {sign}{returnRate.toFixed(1)}%
+        {sign}{(returnRate ?? 0).toFixed(1)}%
       </text>
     </g>
   );
