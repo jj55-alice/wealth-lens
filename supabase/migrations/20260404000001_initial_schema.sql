@@ -1,15 +1,12 @@
 -- Wealth Lens: Initial Schema
 -- Household-based asset tracking for Korean dual-income couples
 
--- Enable UUID generation
-create extension if not exists "uuid-ossp";
-
 -- ============================================================
 -- TABLES
 -- ============================================================
 
 create table households (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null default '우리 가구',
   created_at timestamptz not null default now()
 );
@@ -27,7 +24,7 @@ create unique index idx_household_max_members
   on household_members(household_id, user_id);
 
 create table assets (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households(id) on delete cascade,
   owner_user_id uuid not null references auth.users(id),
   category text not null check (category in (
@@ -58,7 +55,7 @@ create index idx_assets_household on assets(household_id);
 create index idx_assets_category on assets(household_id, category);
 
 create table liabilities (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households(id) on delete cascade,
   owner_user_id uuid not null references auth.users(id),
   category text not null check (category in ('mortgage', 'credit', 'student', 'other')),
@@ -74,7 +71,7 @@ create table liabilities (
 create index idx_liabilities_household on liabilities(household_id);
 
 create table asset_snapshots (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   asset_id uuid not null references assets(id) on delete cascade,
   value numeric not null,
   snapshot_date date not null default current_date
@@ -83,7 +80,7 @@ create table asset_snapshots (
 create index idx_asset_snapshots_date on asset_snapshots(asset_id, snapshot_date);
 
 create table liability_snapshots (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   liability_id uuid not null references liabilities(id) on delete cascade,
   balance numeric not null,
   snapshot_date date not null default current_date
@@ -92,7 +89,7 @@ create table liability_snapshots (
 create index idx_liability_snapshots_date on liability_snapshots(liability_id, snapshot_date);
 
 create table household_snapshots (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households(id) on delete cascade,
   total_assets numeric not null default 0,
   total_liabilities numeric not null default 0,
@@ -113,11 +110,11 @@ create table price_cache (
 
 -- Household invitations
 create table invitations (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households(id) on delete cascade,
   inviter_user_id uuid not null references auth.users(id),
   invitee_email text not null,
-  token text not null unique default encode(gen_random_bytes(32), 'hex'),
+  token text not null unique default replace(gen_random_uuid()::text, '-', ''),
   expires_at timestamptz not null default (now() + interval '7 days'),
   accepted_at timestamptz,
   created_at timestamptz not null default now()
