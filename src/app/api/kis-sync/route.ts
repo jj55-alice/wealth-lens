@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { getSupabaseUrl, getServiceRoleKey } from '@/lib/env';
-import { ensureToken, fetchAllHoldings } from '@/lib/brokers/kis';
+import { ensureToken, fetchAllHoldings, type KisSyncResult } from '@/lib/brokers/kis';
 import { NextResponse } from 'next/server';
 
 export async function POST() {
@@ -63,13 +63,15 @@ export async function POST() {
   }
 
   // 보유 주식 조회 (국내+해외 병렬)
-  let holdings;
+  let result: KisSyncResult;
   try {
-    holdings = await fetchAllHoldings(token, hh.kis_app_key, hh.kis_app_secret, hh.kis_account_no);
+    result = await fetchAllHoldings(token, hh.kis_app_key, hh.kis_app_secret, hh.kis_account_no);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'KIS API 조회 실패';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+
+  const { holdings, errors: apiErrors } = result;
 
   // 기존 KIS 자산 일괄 조회 (배치 패턴)
   const { data: existingAssets } = await supabaseAdmin
@@ -140,5 +142,6 @@ export async function POST() {
     domestic: holdings.filter(h => h.market === 'domestic').length,
     foreign: holdings.filter(h => h.market === 'foreign').length,
     deleted: soldTickers.length,
+    errors: apiErrors,
   });
 }

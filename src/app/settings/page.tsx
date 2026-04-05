@@ -140,7 +140,10 @@ export default function SettingsPage() {
       if (!res.ok) {
         setKisSyncResult(data.error || '동기화 실패');
       } else {
-        setKisSyncResult(`국내 ${data.domestic}종목 + 해외 ${data.foreign}종목 동기화 완료${data.deleted > 0 ? ` (${data.deleted}종목 매도 삭제)` : ''}`);
+        let msg = `국내 ${data.domestic}종목 + 해외 ${data.foreign}��목 동기화 완료`;
+        if (data.deleted > 0) msg += ` (${data.deleted}종목 매도 삭제)`;
+        if (data.errors?.length > 0) msg += `\n⚠️ ${data.errors.join(', ')}`;
+        setKisSyncResult(msg);
       }
     } catch {
       setKisSyncResult('네트워크 오류');

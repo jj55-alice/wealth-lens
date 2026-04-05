@@ -215,16 +215,29 @@ async function fetchForeignHoldings(
 /**
  * 국내 + 해외 보유 주식 전체 조회 (병렬)
  */
+export interface KisSyncResult {
+  holdings: KisHolding[];
+  errors: string[];
+}
+
 export async function fetchAllHoldings(
   token: string,
   appKey: string,
   appSecret: string,
   accountNo: string,
-): Promise<KisHolding[]> {
+): Promise<KisSyncResult> {
+  const errors: string[] = [];
+
   const [domestic, foreign] = await Promise.all([
-    fetchDomesticHoldings(token, appKey, appSecret, accountNo).catch(() => [] as KisHolding[]),
-    fetchForeignHoldings(token, appKey, appSecret, accountNo).catch(() => [] as KisHolding[]),
+    fetchDomesticHoldings(token, appKey, appSecret, accountNo).catch((e: Error) => {
+      errors.push(`국내: ${e.message}`);
+      return [] as KisHolding[];
+    }),
+    fetchForeignHoldings(token, appKey, appSecret, accountNo).catch((e: Error) => {
+      errors.push(`해외: ${e.message}`);
+      return [] as KisHolding[];
+    }),
   ]);
 
-  return [...domestic, ...foreign];
+  return { holdings: [...domestic, ...foreign], errors };
 }
