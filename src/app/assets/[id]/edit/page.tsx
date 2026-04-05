@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
 import type { Asset } from '@/types/database';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [asset, setAsset] = useState<Asset | null>(null);
+  const { toast } = useToast();
 
   // Owner fields
   const [members, setMembers] = useState<Array<{ user_id: string; email: string; nickname: string | null; role: string }>>([]);
@@ -99,11 +101,18 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!asset) return;
+
+    // 입력 검증
+    if (!name.trim()) {
+      toast('이름을 입력해주세요', 'error');
+      return;
+    }
+
     setSaving(true);
 
     try {
       const supabase = createClient();
-      const updates: Record<string, unknown> = { name };
+      const updates: Record<string, unknown> = { name: name.trim() };
       if (ownerUserId) updates.owner_user_id = ownerUserId;
       updates.ownership = ownership;
 
@@ -133,11 +142,13 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
           break;
       }
 
-      await supabase.from('assets').update(updates).eq('id', asset.id);
+      const { error } = await supabase.from('assets').update(updates).eq('id', asset.id);
+      if (error) throw error;
+      toast('자산이 수정되었습니다', 'success');
       router.push('/dashboard');
       router.refresh();
-    } catch (err) {
-      console.error('Update error:', err);
+    } catch {
+      toast('수정에 실패했습니다', 'error');
       setSaving(false);
     }
   }

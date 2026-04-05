@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,22 +40,27 @@ const CATEGORY_ORDER: AssetCategory[] = [
 interface Props {
   assets: AssetWithPrice[];
   exchangeRate?: number | null;
+  onMutate?: () => Promise<void>;
 }
 
-export function AssetList({ assets, exchangeRate }: Props) {
+export function AssetList({ assets, exchangeRate, onMutate }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<AssetWithPrice | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const { toast } = useToast();
 
   async function handleDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       const supabase = createClient();
-      await supabase.from('assets').delete().eq('id', deleteTarget.id);
+      const { error } = await supabase.from('assets').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
       setDeleteTarget(null);
-      window.location.reload();
-    } catch (err) {
-      console.error('Delete error:', err);
+      toast('자산이 삭제되었습니다', 'success');
+      if (onMutate) await onMutate();
+    } catch {
+      toast('삭제에 실패했습니다', 'error');
+    } finally {
       setDeleting(false);
     }
   }
@@ -137,7 +143,7 @@ export function AssetList({ assets, exchangeRate }: Props) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="hidden group-hover:flex items-center gap-1">
+                      <div className="flex sm:opacity-0 sm:group-hover:opacity-100 transition-opacity items-center gap-1">
                         <Link href={`/assets/${asset.id}/edit`}>
                           <Button variant="ghost" size="sm" className="h-7 text-xs px-2">
                             수정

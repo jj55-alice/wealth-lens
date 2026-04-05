@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DashboardView } from '@/components/dashboard-view';
@@ -15,8 +15,7 @@ export default function DashboardPage() {
   const [liabilities, setLiabilities] = useState<Liability[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function load() {
+  const load = useCallback(async function load() {
       const supabase = createClient();
 
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -137,10 +136,9 @@ export default function DashboardPage() {
       }
 
       setLoading(false);
-    }
-
-    load();
   }, [router]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
@@ -170,6 +168,7 @@ export default function DashboardPage() {
       assets={assets}
       liabilities={liabilities}
       exchangeRate={exchangeRate}
+      onMutate={load}
     />
   );
 }

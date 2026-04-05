@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/toast';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,8 @@ export function HouseholdMembers() {
   const [sending, setSending] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function load() {
@@ -83,6 +86,9 @@ export function HouseholdMembers() {
 
   function copyLink() {
     navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    toast('링크가 복사되었습니다', 'success');
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -176,7 +182,7 @@ export function HouseholdMembers() {
                 <div className="flex gap-2">
                   <Input value={inviteLink} readOnly className="text-xs" />
                   <Button variant="outline" size="sm" onClick={copyLink}>
-                    복사
+                    {copied ? '복사됨 ✓' : '복사'}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -184,7 +190,19 @@ export function HouseholdMembers() {
                 </p>
               </div>
               <DialogFooter>
-                <Button onClick={() => { setShowInvite(false); setInviteLink(''); setEmail(''); window.location.reload(); }}>
+                <Button onClick={async () => {
+                  setShowInvite(false);
+                  setInviteLink('');
+                  setEmail('');
+                  setCopied(false);
+                  // 초대 목록 재로드
+                  try {
+                    const res = await fetch('/api/invite');
+                    const data = await res.json();
+                    setMembers(data.members ?? []);
+                    setInvitations(data.invitations ?? []);
+                  } catch { /* ignore */ }
+                }}>
                   확인
                 </Button>
               </DialogFooter>
