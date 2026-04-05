@@ -80,6 +80,25 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
       setRefreshing(false);
     }
   }, [onMutate, toast]);
+
+  const hasRealEstate = assets.some(a => a.category === 'real_estate' && a.kb_complex_id);
+  const [refreshingKb, setRefreshingKb] = useState(false);
+
+  const handleRefreshKb = useCallback(async () => {
+    setRefreshingKb(true);
+    try {
+      const res = await fetch('/api/kb-refresh', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (onMutate) await onMutate();
+      toast(`부동산 시세 ${data.updated}건 갱신됨`, 'success');
+    } catch {
+      toast('부동산 시세 갱신 실패', 'error');
+    } finally {
+      setRefreshingKb(false);
+    }
+  }, [onMutate, toast]);
+
   const totalAssets = filteredAssets.reduce((sum, a) => sum + a.current_value, 0);
   const totalLiabilities = filteredLiabilities.reduce((sum, l) => sum + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
@@ -109,6 +128,17 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             >
               {refreshing ? '갱신 중...' : '↻ 시세'}
             </Button>
+            {hasRealEstate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshKb}
+                disabled={refreshingKb}
+                className="text-xs px-2 sm:px-3 hidden sm:inline-flex"
+              >
+                {refreshingKb ? '갱신 중...' : '🏠 KB시세'}
+              </Button>
+            )}
             <Link
               href="/history"
               className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
