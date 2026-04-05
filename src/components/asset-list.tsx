@@ -123,6 +123,11 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
                               지연
                             </Badge>
                           )}
+                          {asset.kb_estimated_value && !asset.manual_value && (
+                            <Badge variant="outline" className="text-[10px] px-1 text-blue-500">
+                              KB 추정가
+                            </Badge>
+                          )}
                           {asset.lease_expiry && (
                             <Badge variant="outline" className="text-[10px] px-1">
                               만기 {asset.lease_expiry}

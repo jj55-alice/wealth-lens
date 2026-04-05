@@ -116,6 +116,8 @@ export default function DashboardPage() {
           let currentValue = 0;
           if (asset.manual_value) {
             currentValue = Number(asset.manual_value);
+          } else if (asset.kb_estimated_value) {
+            currentValue = Number(asset.kb_estimated_value);
           } else if (currentPrice && asset.quantity) {
             currentValue = currentPrice * Number(asset.quantity);
           }
