@@ -15,7 +15,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/toast';
+import { KbSearch } from '@/components/kb-search';
 import type { Asset } from '@/types/database';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -54,6 +56,8 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [brokerage, setBrokerage] = useState('');
   const [address, setAddress] = useState('');
   const [leaseExpiry, setLeaseExpiry] = useState('');
+  const [kbComplexId, setKbComplexId] = useState<string | null>(null);
+  const [showKbSearch, setShowKbSearch] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -83,6 +87,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
       setBrokerage(data.brokerage ?? '');
       setAddress(data.address ?? '');
       setLeaseExpiry(data.lease_expiry ?? '');
+      setKbComplexId(data.kb_complex_id ?? null);
       setOwnerUserId(data.owner_user_id);
       setOwnership((data.ownership as 'personal' | 'shared') ?? 'personal');
 
@@ -121,6 +126,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
           updates.manual_value = Number(manualValue) || 0;
           updates.address = address || null;
           updates.lease_expiry = leaseExpiry || null;
+          updates.kb_complex_id = kbComplexId || null;
           break;
         case 'stock':
           updates.quantity = Number(quantity) || 0;
@@ -245,6 +251,76 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
           {/* 부동산 */}
           {asset.category === 'real_estate' && (
             <>
+              {/* KB 단지 연결 */}
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">KB 시세 연동</Label>
+                  {kbComplexId ? (
+                    <span className="text-xs text-emerald-500">연결됨 (ID: {kbComplexId})</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">미연결</span>
+                  )}
+                </div>
+                {!showKbSearch && !kbComplexId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => setShowKbSearch(true)}
+                  >
+                    KB 단지 검색으로 시세 연동하기
+                  </Button>
+                )}
+                {!showKbSearch && kbComplexId && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => setShowKbSearch(true)}
+                    >
+                      다른 단지로 변경
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-red-500"
+                      onClick={() => { setKbComplexId(null); }}
+                    >
+                      연결 해제
+                    </Button>
+                  </div>
+                )}
+                {showKbSearch && (
+                  <>
+                    <KbSearch
+                      realEstateType={asset.subcategory === 'jeonse' ? 'jeonse' : 'owned'}
+                      onPriceFound={(price, complexId, complexName, addr) => {
+                        setKbComplexId(complexId);
+                        if (!name || name === asset.name) setName(complexName);
+                        if (!address) setAddress(addr);
+                        setShowKbSearch(false);
+                      }}
+                      onManualFallback={() => setShowKbSearch(false)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setShowKbSearch(false)}
+                    >
+                      취소
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <Separator />
+
               <div className="space-y-1.5">
                 <Label>주소</Label>
                 <Input
