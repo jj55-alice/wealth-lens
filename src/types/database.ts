@@ -80,6 +80,8 @@ export interface Asset {
   address: string | null;
   purchase_price: number | null; // cost basis per unit
   kb_complex_id: string | null; // KB real estate complex ID
+  kb_estimated_value: number | null; // KB auto-fetched estimated price
+  kb_estimated_at: string | null; // Last KB price fetch timestamp
   lease_expiry: string | null; // ISO date, for jeonse
   created_at: string;
   updated_at: string;

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetchPricesBatch } from '@/lib/prices';
+import { getKbPrice } from '@/lib/prices/kb';
 import { getSupabaseUrl, getServiceRoleKey, getCronSecret } from '@/lib/env';
 import { NextResponse } from 'next/server';
 import type { PriceSource } from '@/types/database';
@@ -136,9 +137,40 @@ export async function GET(request: Request) {
     }
   }
 
+  // 3. Update KB real estate estimated values (weekly: only on Mondays)
+  let kbUpdated = 0;
+  const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon
+  if (dayOfWeek === 1) {
+    const { data: kbAssets } = await supabaseAdmin
+      .from('assets')
+      .select('id, kb_complex_id, category')
+      .not('kb_complex_id', 'is', null);
+
+    if (kbAssets && kbAssets.length > 0) {
+      for (const asset of kbAssets) {
+        try {
+          const priceInfo = await getKbPrice(asset.kb_complex_id!);
+          if (priceInfo && priceInfo.dealPrice > 0) {
+            await supabaseAdmin
+              .from('assets')
+              .update({
+                kb_estimated_value: priceInfo.dealPrice * 10000,
+                kb_estimated_at: new Date().toISOString(),
+              })
+              .eq('id', asset.id);
+            kbUpdated++;
+          }
+        } catch {
+          // Silent fail per asset — keep existing value
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     prices_updated: pricesUpdated,
     snapshots_created: snapshotsCreated,
+    kb_updated: kbUpdated,
     date: today,
   });
 }
