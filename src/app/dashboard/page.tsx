@@ -114,7 +114,7 @@ export default function DashboardPage() {
           const cached = asset.ticker ? priceMap.get(asset.ticker) : null;
           const currentPrice = cached?.price ?? null;
           let currentValue = 0;
-          if (asset.manual_value) {
+          if (asset.manual_value != null && asset.manual_value !== '') {
             currentValue = Number(asset.manual_value);
           } else if (asset.kb_estimated_value) {
             currentValue = Number(asset.kb_estimated_value);

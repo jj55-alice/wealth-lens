@@ -137,10 +137,11 @@ export async function GET(request: Request) {
     }
   }
 
-  // 3. Update KB real estate estimated values (weekly: only on Mondays)
+  // 3. Update KB real estate estimated values (weekly: only on Mondays KST)
   let kbUpdated = 0;
-  const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon
-  if (dayOfWeek === 1) {
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dayOfWeekKST = kstNow.getUTCDay(); // 0=Sun, 1=Mon (in KST)
+  if (dayOfWeekKST === 1) {
     const { data: kbAssets } = await supabaseAdmin
       .from('assets')
       .select('id, kb_complex_id, category')
