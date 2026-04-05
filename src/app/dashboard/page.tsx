@@ -7,6 +7,12 @@ import { DashboardView } from '@/components/dashboard-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
+interface HouseholdMemberInfo {
+  user_id: string;
+  nickname: string | null;
+  email: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -14,6 +20,8 @@ export default function DashboardPage() {
   const [assets, setAssets] = useState<AssetWithPrice[]>([]);
   const [liabilities, setLiabilities] = useState<Liability[]>([]);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [members, setMembers] = useState<HouseholdMemberInfo[]>([]);
 
   const load = useCallback(async function load() {
       const supabase = createClient();
@@ -24,6 +32,7 @@ export default function DashboardPage() {
         router.push('/login');
         return;
       }
+      setCurrentUserId(user.id);
 
       // Get household
       const { data: membership, error: memberError } = await supabase
@@ -56,6 +65,17 @@ export default function DashboardPage() {
 
       const hh = membership.households as unknown as Household;
       setHousehold(hh);
+
+      // Fetch members
+      try {
+        const membersRes = await fetch('/api/invite');
+        const membersData = await membersRes.json();
+        setMembers((membersData.members ?? []).map((m: { user_id: string; nickname: string | null; email: string }) => ({
+          user_id: m.user_id,
+          nickname: m.nickname,
+          email: m.email,
+        })));
+      } catch { /* ignore */ }
 
       // Fetch assets and liabilities
       const [assetsRes, liabilitiesRes] = await Promise.all([
@@ -168,6 +188,8 @@ export default function DashboardPage() {
       assets={assets}
       liabilities={liabilities}
       exchangeRate={exchangeRate}
+      currentUserId={currentUserId}
+      members={members}
       onMutate={load}
     />
   );
