@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/components/ui/toast';
 import type { AssetCategory, LiabilityCategory } from '@/types/database';
 
 type EntryType = AssetCategory | 'liability';
@@ -26,7 +27,6 @@ type EntryType = AssetCategory | 'liability';
 const ENTRY_TYPES: { value: EntryType; label: string; icon: string }[] = [
   { value: 'real_estate', label: '부동산', icon: '🏠' },
   { value: 'stock', label: '주식', icon: '📈' },
-  { value: 'pension', label: '연금', icon: '🏦' },
   { value: 'gold', label: '금', icon: '🥇' },
   { value: 'crypto', label: '코인', icon: '₿' },
   { value: 'cash', label: '현금', icon: '💰' },
@@ -68,6 +68,7 @@ interface HouseholdMember {
 
 export default function NewAssetPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [entryType, setEntryType] = useState<EntryType | ''>('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -103,7 +104,6 @@ export default function NewAssetPage() {
   const [ticker, setTicker] = useState('');
   const [stockName, setStockName] = useState('');
   const [stockPriceSource, setStockPriceSource] = useState<'krx' | 'yahoo_finance'>('krx');
-  const [stockCurrentPrice, setStockCurrentPrice] = useState<number | null>(null);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseCurrency, setPurchaseCurrency] = useState<'KRW' | 'USD'>('KRW');
   const [quantity, setQuantity] = useState('');
@@ -206,13 +206,6 @@ export default function NewAssetPage() {
             assetData.asset_class = classifyAsset(stockName || ticker, 'stock', ticker);
             break;
           }
-          case 'pension':
-            assetData.name = name;
-            assetData.manual_value = Number(amount) || 0;
-            assetData.brokerage = brokerage || null;
-            assetData.price_source = 'manual';
-            assetData.asset_class = 'domestic_equity';
-            break;
           case 'gold':
             assetData.name = '금 현물';
             assetData.quantity = Number(grams) || 0;
@@ -329,11 +322,12 @@ export default function NewAssetPage() {
         }
       }
 
+      toast('자산이 등록되었습니다', 'success');
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장에 실패했습니다';
-      console.error('Save error:', err);
+      toast(message, 'error');
       setError(message);
       setSaving(false);
     }
@@ -625,16 +619,9 @@ export default function NewAssetPage() {
                     setStockName(result.name);
                     setStockPriceSource(result.priceSource);
                     setPurchaseCurrency(result.priceSource === 'yahoo_finance' ? 'USD' : 'KRW');
-                    setStockCurrentPrice(result.currentPrice);
                   }}
                 />
               </div>
-              {stockCurrentPrice && (
-                <div className="rounded-lg bg-muted/30 border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">현재 시세</p>
-                  <p className="text-lg font-bold">{stockCurrentPrice.toLocaleString('ko-KR')}원</p>
-                </div>
-              )}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label>매수 단가</Label>
@@ -695,43 +682,6 @@ export default function NewAssetPage() {
             </>
           )}
 
-          {/* 연금 */}
-          {entryType === 'pension' && (
-            <>
-              <div className="space-y-1.5">
-                <Label>이름</Label>
-                <Input
-                  placeholder="예: IRP (신한), 연금저축 (키움)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  maxLength={100}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>증권사/은행</Label>
-                <Select value={brokerage} onValueChange={(v) => v && setBrokerage(v)}>
-                  <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
-                  <SelectContent>
-                    {BROKERAGES.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>현재 잔고 (원)</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                  min={0}
-                />
-              </div>
-            </>
-          )}
 
           {/* 금 */}
           {entryType === 'gold' && (

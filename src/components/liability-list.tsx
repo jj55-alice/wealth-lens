@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useToast } from '@/components/ui/toast';
 import { formatKRW } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,13 +19,15 @@ import type { Liability } from '@/types/database';
 
 interface Props {
   liabilities: Liability[];
+  onMutate?: () => Promise<void>;
 }
 
-export function LiabilityList({ liabilities }: Props) {
+export function LiabilityList({ liabilities, onMutate }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<Liability | null>(null);
   const [editTarget, setEditTarget] = useState<Liability | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   // Edit form state
   const [editName, setEditName] = useState('');
@@ -43,11 +46,14 @@ export function LiabilityList({ liabilities }: Props) {
     setDeleting(true);
     try {
       const supabase = createClient();
-      await supabase.from('liabilities').delete().eq('id', deleteTarget.id);
+      const { error } = await supabase.from('liabilities').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
       setDeleteTarget(null);
-      window.location.reload();
-    } catch (err) {
-      console.error('Delete error:', err);
+      toast('부채가 삭제되었습니다', 'success');
+      if (onMutate) await onMutate();
+    } catch {
+      toast('삭제에 실패했습니다', 'error');
+    } finally {
       setDeleting(false);
     }
   }
@@ -57,7 +63,7 @@ export function LiabilityList({ liabilities }: Props) {
     setSaving(true);
     try {
       const supabase = createClient();
-      await supabase
+      const { error } = await supabase
         .from('liabilities')
         .update({
           name: editName,
@@ -65,10 +71,13 @@ export function LiabilityList({ liabilities }: Props) {
           interest_rate: editRate ? Number(editRate) : null,
         })
         .eq('id', editTarget.id);
+      if (error) throw error;
       setEditTarget(null);
-      window.location.reload();
-    } catch (err) {
-      console.error('Update error:', err);
+      toast('부채가 수정되었습니다', 'success');
+      if (onMutate) await onMutate();
+    } catch {
+      toast('수정에 실패했습니다', 'error');
+    } finally {
       setSaving(false);
     }
   }
@@ -92,7 +101,7 @@ export function LiabilityList({ liabilities }: Props) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="hidden group-hover:flex items-center gap-1">
+              <div className="flex sm:opacity-0 sm:group-hover:opacity-100 transition-opacity items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"

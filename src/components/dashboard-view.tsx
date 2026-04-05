@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,20 +24,26 @@ interface Props {
   assets: AssetWithPrice[];
   liabilities: Liability[];
   exchangeRate?: number | null;
+  onMutate?: () => Promise<void>;
 }
 
-export function DashboardView({ household, assets, liabilities, exchangeRate }: Props) {
+export function DashboardView({ household, assets, liabilities, exchangeRate, onMutate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
+  const { toast } = useToast();
 
-  async function handleRefreshPrices() {
+  const handleRefreshPrices = useCallback(async () => {
     setRefreshing(true);
     try {
-      await fetch('/api/prices', { method: 'POST' });
-      window.location.reload();
+      const res = await fetch('/api/prices', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      if (onMutate) await onMutate();
+      toast('시세가 갱신되었습니다', 'success');
+    } catch {
+      toast('시세 갱신에 실패했습니다', 'error');
     } finally {
       setRefreshing(false);
     }
-  }
+  }, [onMutate, toast]);
   const totalAssets = assets.reduce((sum, a) => sum + a.current_value, 0);
   const totalLiabilities = liabilities.reduce((sum, l) => sum + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
@@ -45,44 +52,59 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4">
+      <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <h1 className="text-lg font-semibold">Wealth Lens</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleRefreshPrices}
               disabled={refreshing}
-              className="text-xs"
+              className="text-xs px-2 sm:px-3"
             >
-              {refreshing ? '갱신 중...' : '↻ 시세 갱신'}
+              {refreshing ? '갱신 중...' : '↻ 시세'}
             </Button>
             <Link
               href="/history"
-              className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
+              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
             >
               📊 히스토리
             </Link>
             <Link
               href="/stocks"
-              className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
+              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
             >
               📈 주식
             </Link>
             <Link
               href="/assets/new"
-              className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="rounded-lg bg-primary px-3 sm:px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              + 자산 등록
+              + 등록
             </Link>
             <Link
               href="/settings"
-              className="rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
+              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
             >
               설정
             </Link>
           </div>
+        </div>
+        {/* 모바일 하단 네비게이션 */}
+        <div className="flex sm:hidden items-center gap-2 mt-2 pt-2 border-t border-border/50">
+          <Link
+            href="/history"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            📊 히스토리
+          </Link>
+          <Link
+            href="/stocks"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            📈 주식
+          </Link>
         </div>
       </header>
 
@@ -206,7 +228,7 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
                 <CardTitle className="text-sm">자산 목록</CardTitle>
               </CardHeader>
               <CardContent>
-                <AssetList assets={assets} exchangeRate={exchangeRate} />
+                <AssetList assets={assets} exchangeRate={exchangeRate} onMutate={onMutate} />
               </CardContent>
             </Card>
 
@@ -221,16 +243,20 @@ export function DashboardView({ household, assets, liabilities, exchangeRate }: 
             </Card>
 
             {/* Liabilities */}
-            {liabilities.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">부채</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <LiabilityList liabilities={liabilities} />
-                </CardContent>
-              </Card>
-            )}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">부채</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {liabilities.length > 0 ? (
+                  <LiabilityList liabilities={liabilities} onMutate={onMutate} />
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    등록된 부채가 없습니다
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </main>

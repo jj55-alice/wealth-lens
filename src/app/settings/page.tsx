@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/toast';
 import { formatKRW } from '@/lib/format';
 
 export default function SettingsPage() {
@@ -27,6 +37,9 @@ export default function SettingsPage() {
   const [upbitSecretKey, setUpbitSecretKey] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState('');
+  const [showLogout, setShowLogout] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
 
   useEffect(() => {
     async function load() {
@@ -52,7 +65,7 @@ export default function SettingsPage() {
           setUserEmail(data.user.email ?? '');
         }
       } catch {
-        // ignore
+        toast('설정을 불러오지 못했습니다', 'error');
       }
       setLoading(false);
     }
@@ -82,9 +95,10 @@ export default function SettingsPage() {
         }),
       });
       setSaved(true);
+      toast('설정이 저장되었습니다', 'success');
       setTimeout(() => setSaved(false), 2000);
     } catch {
-      // ignore
+      toast('저장에 실패했습니다', 'error');
     }
     setSaving(false);
   }
@@ -257,6 +271,39 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* 테마 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">테마</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`flex-1 rounded-lg border px-4 py-3 text-sm transition-colors ${
+                  theme === 'light'
+                    ? 'border-primary bg-primary/10 font-semibold'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                ☀️ 라이트
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`flex-1 rounded-lg border px-4 py-3 text-sm transition-colors ${
+                  theme === 'dark'
+                    ? 'border-primary bg-primary/10 font-semibold'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                🌙 다크
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 저장 */}
         <Button className="w-full" onClick={handleSave} disabled={saving}>
           {saving ? '저장 중...' : saved ? '저장됨' : '저장'}
@@ -268,11 +315,30 @@ export default function SettingsPage() {
         <Button
           variant="outline"
           className="w-full text-red-500 hover:text-red-600"
-          onClick={handleLogout}
+          onClick={() => setShowLogout(true)}
         >
           로그아웃
         </Button>
       </main>
+
+      <Dialog open={showLogout} onOpenChange={setShowLogout}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>로그아웃</DialogTitle>
+            <DialogDescription>
+              정말 로그아웃하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLogout(false)}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              로그아웃
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
