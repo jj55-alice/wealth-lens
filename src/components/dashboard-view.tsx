@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,17 +19,53 @@ import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
+type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
+
+interface MemberInfo {
+  user_id: string;
+  nickname: string | null;
+  email: string;
+}
+
 interface Props {
   household: Household;
   assets: AssetWithPrice[];
   liabilities: Liability[];
   exchangeRate?: number | null;
+  currentUserId?: string;
+  members?: MemberInfo[];
   onMutate?: () => Promise<void>;
 }
 
-export function DashboardView({ household, assets, liabilities, exchangeRate, onMutate }: Props) {
+export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], onMutate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const { toast } = useToast();
+
+  const spouse = members.find(m => m.user_id !== currentUserId);
+  const myName = members.find(m => m.user_id === currentUserId)?.nickname || '본인';
+  const spouseName = spouse?.nickname || '배우자';
+
+  const filteredAssets = useMemo(() => {
+    if (ownerFilter === 'all') return assets;
+    if (ownerFilter === 'mine') return assets.filter(a => a.owner_user_id === currentUserId && a.ownership === 'personal');
+    if (ownerFilter === 'spouse') return assets.filter(a => a.owner_user_id !== currentUserId && a.ownership === 'personal');
+    if (ownerFilter === 'shared') return assets.filter(a => a.ownership === 'shared');
+    return assets;
+  }, [assets, ownerFilter, currentUserId]);
+
+  const filteredLiabilities = useMemo(() => {
+    if (ownerFilter === 'all') return liabilities;
+    if (ownerFilter === 'mine') return liabilities.filter(l => l.owner_user_id === currentUserId && l.ownership === 'personal');
+    if (ownerFilter === 'spouse') return liabilities.filter(l => l.owner_user_id !== currentUserId && l.ownership === 'personal');
+    if (ownerFilter === 'shared') return liabilities.filter(l => l.ownership === 'shared');
+    return liabilities;
+  }, [liabilities, ownerFilter, currentUserId]);
+
+  const netWorthLabel = ownerFilter === 'all' ? '총 순자산'
+    : ownerFilter === 'mine' ? `${myName}님 순자산`
+    : ownerFilter === 'spouse' ? `${spouseName}님 순자산`
+    : '공동 순자산';
 
   const handleRefreshPrices = useCallback(async () => {
     setRefreshing(true);
@@ -44,11 +80,19 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, on
       setRefreshing(false);
     }
   }, [onMutate, toast]);
-  const totalAssets = assets.reduce((sum, a) => sum + a.current_value, 0);
-  const totalLiabilities = liabilities.reduce((sum, l) => sum + l.balance, 0);
+  const totalAssets = filteredAssets.reduce((sum, a) => sum + a.current_value, 0);
+  const totalLiabilities = filteredLiabilities.reduce((sum, l) => sum + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
 
   const isEmpty = assets.length === 0 && liabilities.length === 0;
+  const isFilteredEmpty = ownerFilter !== 'all' && filteredAssets.length === 0 && filteredLiabilities.length === 0;
+
+  const filterTabs: { key: OwnerFilter; label: string; shortLabel: string }[] = [
+    { key: 'all', label: '전체', shortLabel: '전체' },
+    { key: 'mine', label: myName, shortLabel: '나' },
+    { key: 'spouse', label: spouseName, shortLabel: spouseName.slice(0, 3) },
+    { key: 'shared', label: '공동', shortLabel: '공동' },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -134,18 +178,38 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, on
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">총 순자산</p>
-                    <p className="text-4xl font-bold tracking-tight mt-1">
+                    <p className="text-sm text-muted-foreground">{netWorthLabel}</p>
+                    <p className="text-4xl font-bold tracking-tight mt-1 transition-all duration-200">
                       {formatKRW(netWorth)}
                     </p>
                   </div>
                   <HealthScore
                     assets={assets}
                     liabilities={liabilities}
-                    totalAssets={totalAssets}
-                    totalLiabilities={totalLiabilities}
+                    totalAssets={assets.reduce((s, a) => s + a.current_value, 0)}
+                    totalLiabilities={liabilities.reduce((s, l) => s + l.balance, 0)}
                   />
                 </div>
+
+                {/* Owner Filter */}
+                {members.length >= 2 && (
+                  <div className="flex gap-1 mt-3">
+                    {filterTabs.map(tab => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setOwnerFilter(tab.key)}
+                        className={`px-3 py-1.5 text-xs rounded-full transition-all duration-200 min-h-[36px] sm:min-h-0 ${
+                          ownerFilter === tab.key
+                            ? 'bg-primary text-primary-foreground font-medium'
+                            : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <span className="hidden sm:inline">{tab.label}</span>
+                        <span className="sm:hidden">{tab.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* 목표 달성률 */}
                 {household.goal_net_worth && household.goal_net_worth > 0 && (
@@ -187,50 +251,72 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, on
             </Card>
 
             {/* Lease Alerts */}
-            <LeaseAlerts assets={assets} />
+            <LeaseAlerts assets={filteredAssets} />
 
             {/* Milestone Progress */}
             <MilestoneCheck netWorth={netWorth} />
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {isFilteredEmpty ? (
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">자산 유형별</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AssetPieChart assets={assets} />
+                <CardContent className="py-12 text-center">
+                  <p className="text-3xl mb-3">👤</p>
+                  <p className="text-sm font-medium">
+                    {ownerFilter === 'mine' ? `${myName}님` : ownerFilter === 'spouse' ? `${spouseName}님` : '공동'} 명의 자산이 없어요
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    자산 등록 시 소유자를 선택할 수 있습니다
+                  </p>
+                  <Link
+                    href="/assets/new"
+                    className="mt-4 inline-block rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                  >
+                    자산 등록하기
+                  </Link>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">투자 자산 배분</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AllocationPieChart assets={assets} />
-                </CardContent>
-              </Card>
-            </div>
+            ) : (
+              <>
+                {/* Charts */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">자산 유형별</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <AssetPieChart assets={filteredAssets} />
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">투자 자산 배분</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <AllocationPieChart assets={filteredAssets} />
+                    </CardContent>
+                  </Card>
+                </div>
 
-            {/* Top Assets */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">자산 비중 TOP 5</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ChangeAttribution assets={assets} />
-              </CardContent>
-            </Card>
+                {/* Top Assets */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">자산 비중 TOP 5</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ChangeAttribution assets={filteredAssets} />
+                  </CardContent>
+                </Card>
 
-            {/* Asset List */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">자산 목록</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssetList assets={assets} exchangeRate={exchangeRate} onMutate={onMutate} />
-              </CardContent>
-            </Card>
+                {/* Asset List */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">자산 목록</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssetList assets={filteredAssets} exchangeRate={exchangeRate} onMutate={onMutate} />
+                  </CardContent>
+                </Card>
+              </>
+            )}
 
             {/* Household Members */}
             <Card>
@@ -248,11 +334,11 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, on
                 <CardTitle className="text-sm">부채</CardTitle>
               </CardHeader>
               <CardContent>
-                {liabilities.length > 0 ? (
-                  <LiabilityList liabilities={liabilities} onMutate={onMutate} />
+                {filteredLiabilities.length > 0 ? (
+                  <LiabilityList liabilities={filteredLiabilities} onMutate={onMutate} />
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    등록된 부채가 없습니다
+                    {ownerFilter === 'all' ? '등록된 부채가 없습니다' : '해당 소유자의 부채가 없습니다'}
                   </p>
                 )}
               </CardContent>
