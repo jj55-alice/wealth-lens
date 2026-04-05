@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
+import { Separator } from '@/components/ui/separator';
 import type { AssetCategory, LiabilityCategory } from '@/types/database';
 
 type EntryType = AssetCategory | 'liability';
@@ -333,6 +334,26 @@ export default function NewAssetPage() {
     }
   }
 
+  const PRESETS = [
+    { label: '적금', icon: '🏦', category: 'cash' as EntryType, defaults: { name: '적금', brokerage: '', subcategory: 'savings' } },
+    { label: 'CMA', icon: '💳', category: 'cash' as EntryType, defaults: { name: 'CMA', brokerage: '', subcategory: 'cma' } },
+    { label: '예금', icon: '🏦', category: 'cash' as EntryType, defaults: { name: '예금', brokerage: '', subcategory: 'savings' } },
+    { label: '비상금', icon: '💰', category: 'cash' as EntryType, defaults: { name: '비상금', brokerage: '', subcategory: 'other' } },
+    { label: '월세보증금', icon: '🏠', category: 'real_estate' as EntryType, defaults: { name: '월세 보증금', realEstateType: 'jeonse' } },
+    { label: '전세', icon: '🏠', category: 'real_estate' as EntryType, defaults: { name: '전세', realEstateType: 'jeonse' } },
+  ];
+
+  function applyPreset(preset: typeof PRESETS[number]) {
+    setEntryType(preset.category);
+    setName(preset.defaults.name);
+    if ('brokerage' in preset.defaults && preset.defaults.brokerage) {
+      setBrokerage(preset.defaults.brokerage);
+    }
+    if ('realEstateType' in preset.defaults && preset.defaults.realEstateType) {
+      setRealEstateType(preset.defaults.realEstateType);
+    }
+  }
+
   if (!entryType) {
     return (
       <div className="min-h-screen bg-background">
@@ -345,8 +366,27 @@ export default function NewAssetPage() {
           </div>
         </header>
         <main className="mx-auto max-w-lg px-6 py-8">
+          {/* Quick Presets */}
+          <div className="mb-6">
+            <p className="text-sm font-medium mb-3">빠른 등록</p>
+            <div className="flex flex-wrap gap-2">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => applyPreset(preset)}
+                  className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+                >
+                  <span>{preset.icon}</span>
+                  <span>{preset.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Separator className="mb-6" />
+
           <p className="text-sm text-muted-foreground mb-4">
-            어떤 자산을 등록하시겠어요?
+            직접 선택하기
           </p>
           <div className="grid grid-cols-2 gap-3">
             {ENTRY_TYPES.map((type) => (
