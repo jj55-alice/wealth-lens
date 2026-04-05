@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: membership } = await supabaseAdmin
     .from('household_members')
-    .select('household_id, role, households(id, name, goal_net_worth, goal_annual_dividend, upbit_access_key, upbit_secret_key)')
+    .select('household_id, role, households(id, name, goal_net_worth, goal_annual_dividend, upbit_access_key, upbit_secret_key, kis_app_key, kis_app_secret, kis_account_no)')
     .eq('user_id', user.id)
     .single();
 
@@ -29,6 +29,9 @@ export async function GET() {
     goal_annual_dividend: number | null;
     upbit_access_key: string | null;
     upbit_secret_key: string | null;
+    kis_app_key: string | null;
+    kis_app_secret: string | null;
+    kis_account_no: string | null;
   };
 
   return NextResponse.json({
@@ -64,6 +67,9 @@ export async function PUT(request: Request) {
   if ('goal_annual_dividend' in body) updates.goal_annual_dividend = body.goal_annual_dividend || null;
   if ('upbit_access_key' in body) updates.upbit_access_key = body.upbit_access_key || null;
   if ('upbit_secret_key' in body) updates.upbit_secret_key = body.upbit_secret_key || null;
+  if ('kis_app_key' in body) updates.kis_app_key = body.kis_app_key || null;
+  if ('kis_app_secret' in body) updates.kis_app_secret = body.kis_app_secret || null;
+  if ('kis_account_no' in body) updates.kis_account_no = body.kis_account_no || null;
 
   const { error } = await supabaseAdmin
     .from('households')

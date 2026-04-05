@@ -37,6 +37,11 @@ export default function SettingsPage() {
   const [upbitSecretKey, setUpbitSecretKey] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState('');
+  const [kisAppKey, setKisAppKey] = useState('');
+  const [kisAppSecret, setKisAppSecret] = useState('');
+  const [kisAccountNo, setKisAccountNo] = useState('');
+  const [kisSyncing, setKisSyncing] = useState(false);
+  const [kisSyncResult, setKisSyncResult] = useState('');
   const [showLogout, setShowLogout] = useState(false);
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -60,6 +65,9 @@ export default function SettingsPage() {
           setGoalDividend(data.household.goal_annual_dividend ? String(data.household.goal_annual_dividend) : '');
           setUpbitAccessKey(data.household.upbit_access_key ?? '');
           setUpbitSecretKey(data.household.upbit_secret_key ?? '');
+          setKisAppKey(data.household.kis_app_key ?? '');
+          setKisAppSecret(data.household.kis_app_secret ?? '');
+          setKisAccountNo(data.household.kis_account_no ?? '');
         }
         if (data.user) {
           setUserEmail(data.user.email ?? '');
@@ -92,6 +100,9 @@ export default function SettingsPage() {
           goal_annual_dividend: goalDividend ? Number(goalDividend) : null,
           upbit_access_key: upbitAccessKey || null,
           upbit_secret_key: upbitSecretKey || null,
+          kis_app_key: kisAppKey || null,
+          kis_app_secret: kisAppSecret || null,
+          kis_account_no: kisAccountNo || null,
         }),
       });
       setSaved(true);
@@ -118,6 +129,23 @@ export default function SettingsPage() {
       setSyncResult('네트워크 오류');
     }
     setSyncing(false);
+  }
+
+  async function handleKisSync() {
+    setKisSyncing(true);
+    setKisSyncResult('');
+    try {
+      const res = await fetch('/api/kis-sync', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setKisSyncResult(data.error || '동기화 실패');
+      } else {
+        setKisSyncResult(`국내 ${data.domestic}종목 + 해외 ${data.foreign}종목 동기화 완료${data.deleted > 0 ? ` (${data.deleted}종목 매도 삭제)` : ''}`);
+      }
+    } catch {
+      setKisSyncResult('네트워크 오류');
+    }
+    setKisSyncing(false);
   }
 
   async function handleLogout() {
@@ -266,6 +294,63 @@ export default function SettingsPage() {
             {syncResult && (
               <p className={`text-xs ${syncResult.includes('완료') ? 'text-emerald-500' : 'text-red-500'}`}>
                 {syncResult}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 한국투자증권 연동 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">한국투자증권 연동</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              한국투자증권 API 키를 입력하면 보유 주식(국내+해외)을 자동으로 가져옵니다.
+              KIS Developers (apiportal.koreainvestment.com)에서 발급하세요.
+            </p>
+            <div className="space-y-1.5">
+              <Label>App Key</Label>
+              <Input
+                type="password"
+                value={kisAppKey}
+                onChange={(e) => setKisAppKey(e.target.value)}
+                placeholder="App Key"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>App Secret</Label>
+              <Input
+                type="password"
+                value={kisAppSecret}
+                onChange={(e) => setKisAppSecret(e.target.value)}
+                placeholder="App Secret"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>계좌번호</Label>
+              <Input
+                value={kisAccountNo}
+                onChange={(e) => setKisAccountNo(e.target.value)}
+                placeholder="00000000-00"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                8자리-2자리 형식 (예: 50012345-01)
+              </p>
+            </div>
+            {kisAppKey && kisAppSecret && kisAccountNo && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleKisSync}
+                disabled={kisSyncing}
+              >
+                {kisSyncing ? '동기화 중...' : '📈 주식 동기화'}
+              </Button>
+            )}
+            {kisSyncResult && (
+              <p className={`text-xs ${kisSyncResult.includes('완료') ? 'text-emerald-500' : 'text-red-500'}`}>
+                {kisSyncResult}
               </p>
             )}
           </CardContent>
