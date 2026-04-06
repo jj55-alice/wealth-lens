@@ -96,7 +96,9 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
         const membersRes = await fetch('/api/invite');
         const membersData = await membersRes.json();
         if (Array.isArray(membersData.members)) setMembers(membersData.members);
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('멤버 목록 조회 실패:', err);
+      }
 
       setLoading(false);
     }

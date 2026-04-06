@@ -171,7 +171,7 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
                           }
                         </p>
                         {(() => {
-                          const pp = (asset as unknown as { purchase_price: number | null }).purchase_price;
+                          const pp = asset.purchase_price;
                           if (!pp || pp <= 0) return null;
                           const currentVal = asset.current_value;
                           const returnRate = ((currentVal - pp * (asset.quantity ?? 1)) / (pp * (asset.quantity ?? 1))) * 100;

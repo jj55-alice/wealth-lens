@@ -135,7 +135,9 @@ export async function POST() {
   // 시세 갱신 트리거
   try {
     await fetch(new URL('/api/prices', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').toString(), { method: 'POST' });
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error('KIS 시세 갱신 트리거 실패:', err);
+  }
 
   // 디버그: raw API 응답 포함 (금현물 등 누락 원인 확인용)
   let debugRaw = null;
@@ -167,7 +169,9 @@ export async function POST() {
       },
     );
     debugRaw = await debugRes.json();
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error('KIS 디버그 API 조회 실패:', err);
+  }
 
   return NextResponse.json({
     synced,

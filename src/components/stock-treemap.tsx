@@ -98,7 +98,7 @@ export function StockTreemap({ stocks }: Props) {
   const data: TreemapNode[] = stocks
     .filter((s) => s.current_value > 0)
     .map((s) => {
-      const purchasePrice = (s as unknown as { purchase_price: number | null }).purchase_price;
+      const purchasePrice = s.purchase_price;
       const currentPrice = s.current_price ?? 0;
       const returnRate = purchasePrice && purchasePrice > 0
         ? ((currentPrice - purchasePrice) / purchasePrice) * 100

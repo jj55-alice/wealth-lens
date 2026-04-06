@@ -76,7 +76,9 @@ export default function DashboardPage() {
           nickname: m.nickname,
           email: m.email,
         })));
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('멤버 목록 조회 실패:', err);
+      }
 
       // Fetch assets and liabilities
       const [assetsRes, liabilitiesRes] = await Promise.all([
@@ -153,8 +155,8 @@ export default function DashboardPage() {
           const rateRes = await fetch('/api/exchange-rate');
           const rateData = await rateRes.json();
           if (rateData.rate) setExchangeRate(rateData.rate);
-        } catch {
-          // ignore
+        } catch (err) {
+          console.error('환율 조회 실패:', err);
         }
       }
 
@@ -178,7 +180,9 @@ export default function DashboardPage() {
             setMonthlyGrowth(Math.round((Number(newest.net_worth) - Number(oldest.net_worth)) / monthsDiff));
           }
         }
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('월평균 증가 계산 실패:', err);
+      }
 
       setLoading(false);
   }, [router]);

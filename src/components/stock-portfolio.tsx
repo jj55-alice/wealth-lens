@@ -18,8 +18,8 @@ interface Props {
 export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
   // 총 투자금 계산
   const totalInvested = stocks.reduce((sum, s) => {
-    const pp = (s as unknown as { purchase_price: number | null }).purchase_price;
-    if (pp && s.quantity) return sum + pp * s.quantity;
+    const pp = s.purchase_price;
+    if (pp && s.quantity) return sum + pp * Number(s.quantity);
     return sum;
   }, 0);
 
@@ -32,10 +32,10 @@ export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
 
   // 종목별 수익률
   const stockReturns = stocks.map((s) => {
-    const pp = (s as unknown as { purchase_price: number | null }).purchase_price;
+    const pp = s.purchase_price;
     const currentPrice = s.current_price ?? 0;
     const returnRate = pp && pp > 0 ? ((currentPrice - pp) / pp) * 100 : null;
-    const profit = pp && s.quantity ? (currentPrice - pp) * s.quantity : null;
+    const profit = pp && s.quantity ? (currentPrice - pp) * Number(s.quantity) : null;
 
     return {
       ...s,

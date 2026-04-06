@@ -201,7 +201,9 @@ export function HouseholdMembers() {
                     const data = await res.json();
                     setMembers(data.members ?? []);
                     setInvitations(data.invitations ?? []);
-                  } catch { /* ignore */ }
+                  } catch (err) {
+                    console.error('초대 목록 갱신 실패:', err);
+                  }
                 }}>
                   확인
                 </Button>
