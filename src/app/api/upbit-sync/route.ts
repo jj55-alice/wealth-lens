@@ -161,9 +161,17 @@ export async function POST() {
     }
   }
 
-  // 시세 갱신
+  // 시세 갱신 — 동기화한 코인의 시세를 price_cache에 저장
   try {
-    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL ? '' : 'http://localhost:3000'}/api/prices`, { method: 'POST' });
+    const { fetchPricesBatch } = await import('@/lib/prices');
+    const priceItems = holdings.map(h => ({ ticker: h.currency, source: 'upbit' as const }));
+    const prices = await fetchPricesBatch(priceItems);
+    for (const [ticker, result] of prices) {
+      await supabaseAdmin.from('price_cache').upsert(
+        { ticker, price: result.price, currency: result.currency, source: result.source, fetched_at: new Date().toISOString() },
+        { onConflict: 'ticker' },
+      );
+    }
   } catch { /* ignore */ }
 
   return NextResponse.json({ synced, holdings: holdings.length });
