@@ -10,16 +10,20 @@ const CLASS_LABELS: Record<string, string> = {
   bond: '채권',
   commodity: '원자재',
   cash_equiv: '현금성',
+  crypto: '크립토',
+  real_estate: '부동산',
   alternative: '대안투자',
 };
 
 const COLORS = [
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#06b6d4', // cyan
-  '#f59e0b', // amber
-  '#10b981', // emerald
-  '#6b7280', // gray
+  '#3b82f6', // blue — 국내주식
+  '#8b5cf6', // violet — 해외주식
+  '#06b6d4', // cyan — 채권
+  '#f59e0b', // amber — 원자재
+  '#10b981', // emerald — 크립토
+  '#6b7280', // gray — 현금성
+  '#f97316', // orange — 부동산
+  '#a855f7', // purple — 대안투자
 ];
 
 interface Props {

@@ -35,7 +35,9 @@ export type AssetClass =
   | 'bond'
   | 'commodity'
   | 'cash_equiv'
-  | 'alternative';
+  | 'alternative'
+  | 'crypto'
+  | 'real_estate';
 
 export type LiabilityCategory =
   | 'mortgage'
