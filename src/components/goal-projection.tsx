@@ -76,7 +76,7 @@ export function GoalProjection({ netWorth, goalNetWorth, recentMonthlyGrowth }: 
         </div>
 
         {/* 현재 추세 기반 예상 */}
-        {trendMonths && (
+        {trendMonths ? (
           <div className="rounded-lg bg-muted/30 px-4 py-3">
             <p className="text-xs text-muted-foreground">최근 추세 기반 예상</p>
             <p className="text-sm font-semibold mt-0.5">
@@ -86,7 +86,17 @@ export function GoalProjection({ netWorth, goalNetWorth, recentMonthlyGrowth }: 
               (월평균 {formatKRW(recentMonthlyGrowth!)} 증가 기준)
             </p>
           </div>
-        )}
+        ) : recentMonthlyGrowth !== null && recentMonthlyGrowth <= 0 ? (
+          <div className="rounded-lg bg-red-500/10 px-4 py-3">
+            <p className="text-xs text-muted-foreground">최근 추세</p>
+            <p className="text-sm font-semibold text-red-500 mt-0.5">
+              순자산이 감소 추세입니다
+            </p>
+            <p className="text-xs text-muted-foreground">
+              (월평균 {formatKRW(recentMonthlyGrowth)} 변동)
+            </p>
+          </div>
+        ) : null}
 
         {/* 시뮬레이터 */}
         <div className="space-y-2">
