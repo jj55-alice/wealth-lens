@@ -17,6 +17,7 @@ import { LeaseAlerts } from '@/components/lease-alerts';
 import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
+import { GoalProjection } from '@/components/goal-projection';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
@@ -34,10 +35,11 @@ interface Props {
   exchangeRate?: number | null;
   currentUserId?: string;
   members?: MemberInfo[];
+  monthlyGrowth?: number | null;
   onMutate?: () => Promise<void>;
 }
 
-export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], onMutate }: Props) {
+export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], monthlyGrowth, onMutate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const { toast } = useToast();
@@ -297,6 +299,15 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
 
             {/* Milestone Progress */}
             <MilestoneCheck netWorth={netWorth} />
+
+            {/* 목표 프로젝션 */}
+            {household.goal_net_worth && household.goal_net_worth > 0 && ownerFilter === 'all' && (
+              <GoalProjection
+                netWorth={netWorth}
+                goalNetWorth={household.goal_net_worth}
+                recentMonthlyGrowth={monthlyGrowth ?? null}
+              />
+            )}
 
             {isFilteredEmpty ? (
               <Card>

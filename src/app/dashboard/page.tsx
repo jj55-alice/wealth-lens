@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [members, setMembers] = useState<HouseholdMemberInfo[]>([]);
+  const [monthlyGrowth, setMonthlyGrowth] = useState<number | null>(null);
 
   const load = useCallback(async function load() {
       const supabase = createClient();
@@ -157,6 +158,28 @@ export default function DashboardPage() {
         }
       }
 
+      // 최근 3개월 순자산 월평균 증가 계산
+      try {
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        const { data: snapshots } = await supabase
+          .from('household_snapshots')
+          .select('net_worth, snapshot_date')
+          .eq('household_id', hh.id)
+          .gte('snapshot_date', threeMonthsAgo.toISOString().split('T')[0])
+          .order('snapshot_date', { ascending: true });
+
+        if (snapshots && snapshots.length >= 2) {
+          const oldest = snapshots[0];
+          const newest = snapshots[snapshots.length - 1];
+          const daysDiff = (new Date(newest.snapshot_date).getTime() - new Date(oldest.snapshot_date).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysDiff > 0) {
+            const monthsDiff = daysDiff / 30;
+            setMonthlyGrowth(Math.round((Number(newest.net_worth) - Number(oldest.net_worth)) / monthsDiff));
+          }
+        }
+      } catch { /* ignore */ }
+
       setLoading(false);
   }, [router]);
 
@@ -192,6 +215,7 @@ export default function DashboardPage() {
       exchangeRate={exchangeRate}
       currentUserId={currentUserId}
       members={members}
+      monthlyGrowth={monthlyGrowth}
       onMutate={load}
     />
   );
