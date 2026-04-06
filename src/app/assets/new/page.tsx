@@ -237,13 +237,17 @@ export default function NewAssetPage() {
         const assetTicker = assetData.ticker as string | undefined;
 
         if (assetTicker && (entryType === 'stock' || entryType === 'crypto')) {
-          const { data: existing } = await supabase
+          let existingQuery = supabase
             .from('assets')
             .select('id, quantity, purchase_price')
             .eq('household_id', householdId)
             .eq('ticker', assetTicker)
             .eq('category', entryType)
-            .maybeSingle();
+            .eq('owner_user_id', ownerUserId || user.id);
+          if (assetData.brokerage) {
+            existingQuery = existingQuery.eq('brokerage', assetData.brokerage);
+          }
+          const { data: existing } = await existingQuery.maybeSingle();
 
           if (existing) {
             const oldQty = Number(existing.quantity) || 0;
