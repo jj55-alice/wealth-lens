@@ -18,6 +18,7 @@ import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
 import { GoalProjection } from '@/components/goal-projection';
+import { MonthlyChange } from '@/components/monthly-change';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
@@ -293,6 +294,15 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                 </div>
               </CardContent>
             </Card>
+
+            {/* Monthly Change */}
+            {ownerFilter === 'all' && (
+              <MonthlyChange
+                householdId={household.id}
+                currentNetWorth={netWorth}
+                assets={assets}
+              />
+            )}
 
             {/* Lease Alerts */}
             <LeaseAlerts assets={filteredAssets} />
