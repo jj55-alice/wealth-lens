@@ -2,6 +2,25 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.1.0] - 2026-04-06
+
+### Added
+- DESIGN.md 디자인 시스템 문서 생성 (색상, 타이포, 스페이싱, 레이아웃, 모션 규칙)
+- asset_class에 'crypto', 'real_estate' 추가 (기존 'alternative'에서 분리)
+- `src/lib/calculations.ts` 수익률 계산 유틸리티 (DRY 통합)
+- Upbit 동기화 시 매도 완료 코인(quantity=0) 자동 정리
+- 목표 프로젝션에서 순자산 감소 추세 시 경고 메시지 표시
+
+### Changed
+- classification.ts: crypto → 'crypto', real_estate → 'real_estate'로 분류 변경
+- allocation-pie-chart: 8색 팔레트로 확장 (crypto, real_estate 별도 색상)
+- CLAUDE.md에 디자인 시스템 참조 섹션 추가
+
+### Fixed
+- purchase_price 접근 시 불필요한 `as unknown as` 캐스팅 4곳 제거
+- 빈 catch 블록 10곳 → console.error로 에러 로깅 추가
+- design-doc-phase3.md 디자인 문서 추가 (리밸런싱 MVP 설계)
+
 ## [0.1.0.0] - 2026-04-05
 
 ### Added
