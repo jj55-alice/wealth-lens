@@ -1,9 +1,9 @@
 import type { PriceAdapter, PriceResult } from './types';
 
-// 부동산 시세 조회
-// 직방 API로 아파트 검색, 시세는 수동 입력 또는 추후 공공데이터 API 연동
-const ZIGBANG_API = 'https://apis.zigbang.com';
-const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36';
+// KB부동산 시세 조회
+// KB부동산 API를 통해 아파트 시세 조회
+const KB_API_BASE = 'https://api.kbland.kr';
+const USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15';
 
 export interface KbComplex {
   complexId: string;
@@ -25,72 +25,125 @@ export interface KbPriceInfo {
 }
 
 /**
- * 직방 API로 아파트 단지를 검색합니다.
- * (기존 KB API 대체 — KB API 엔드포인트 폐쇄됨 2026-04)
+ * KB부동산에서 아파트 단지를 검색합니다.
  */
 export async function searchKbComplex(query: string): Promise<KbComplex[]> {
   try {
     const res = await fetch(
-      `${ZIGBANG_API}/v2/search?q=${encodeURIComponent(query)}&type=apt`,
+      `${KB_API_BASE}/land-complex/complexSearch?searchWord=${encodeURIComponent(query)}&orderBy=ACC`,
       { headers: { 'User-Agent': USER_AGENT } }
     );
 
     if (!res.ok) return [];
 
     const data = await res.json();
-    const items = data?.items ?? [];
+    const items = data?.dataBody?.data ?? [];
 
     return items
-      .filter((item: Record<string, unknown>) => item.type === 'apartment')
+      .filter((item: Record<string, unknown>) => item.complexType === 'APT')
       .slice(0, 10)
-      .map((item: Record<string, unknown>) => {
-        const source = (item._source ?? {}) as Record<string, unknown>;
-        return {
-          complexId: String(item.id ?? ''),
-          complexName: String(item.name ?? ''),
-          address: String(item.description ?? ''),
-          totalHousehold: Number(source.household ?? 0),
-        };
-      });
+      .map((item: Record<string, unknown>) => ({
+        complexId: String(item.complexNo ?? ''),
+        complexName: String(item.complexName ?? ''),
+        address: String(item.address ?? ''),
+        totalHousehold: Number(item.totalHousehold ?? 0),
+      }));
   } catch {
     return [];
   }
 }
 
 /**
- * 직방 API로 단지 상세 정보를 가져옵니다.
- * 면적 정보는 직방에서 직접 제공하지 않으므로 빈 배열 반환.
+ * KB부동산에서 단지의 면적 리스트를 가져옵니다.
  */
-export async function getKbAreas(_complexId: string): Promise<KbArea[]> {
-  // 직방 API에서는 면적별 조회를 지원하지 않음
-  // 추후 공공데이터 API로 면적 정보 연동 예정
-  return [];
+export async function getKbAreas(complexId: string): Promise<KbArea[]> {
+  try {
+    const res = await fetch(
+      `${KB_API_BASE}/land-complex/complexDetail?complexNo=${complexId}`,
+      { headers: { 'User-Agent': USER_AGENT } }
+    );
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const areas = data?.dataBody?.areaList ?? [];
+
+    return areas.map((a: Record<string, unknown>) => ({
+      areaId: String(a.areaNo ?? ''),
+      exclusiveArea: Number(a.exclusiveArea ?? 0),
+      supplyArea: Number(a.supplyArea ?? 0),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /**
- * 시세 조회 — 현재 자동 시세 조회 불가 (KB API 폐쇄, 직방은 시세 비공개)
- * 추후 공공데이터 실거래가 API (data.go.kr) 연동 예정
+ * KB부동산에서 특정 단지+면적의 시세를 조회합니다.
  */
-export async function getKbPrice(_complexId: string, _areaId?: string): Promise<KbPriceInfo | null> {
-  // KB API 폐쇄로 자동 시세 조회 불가
-  // 공공데이터 실거래가 API 키 발급 후 연동 예정
-  return null;
+export async function getKbPrice(complexId: string, areaId?: string): Promise<KbPriceInfo | null> {
+  try {
+    let url = `${KB_API_BASE}/land-price/priceInfo?complexNo=${complexId}`;
+    if (areaId) url += `&areaNo=${areaId}`;
+
+    const res = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT },
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const priceInfo = data?.dataBody;
+
+    if (!priceInfo) return null;
+
+    // KB시세는 만원 단위로 제공됨
+    const dealPrice = Number(priceInfo.dealPrice ?? priceInfo.marketPrice ?? 0);
+    const jeonsePrice = Number(priceInfo.jeonsePrice ?? priceInfo.leasePrice ?? 0);
+
+    return {
+      dealPrice,
+      jeonsePrice,
+      priceDate: String(priceInfo.priceDate ?? new Date().toISOString().slice(0, 10)),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
- * PriceAdapter for real estate (currently manual-only)
- * ticker = complex_id (e.g., "1456")
+ * PriceAdapter for KB real estate
+ * ticker = kb_complex_id (e.g., "12345")
  */
 export const kbAdapter: PriceAdapter = {
-  async fetchPrice(_ticker: string): Promise<PriceResult> {
-    // 자동 시세 조회 불가 — manual_value 또는 kb_estimated_value 사용
-    throw new Error('Real estate auto-pricing not available (KB API deprecated)');
+  async fetchPrice(ticker: string): Promise<PriceResult> {
+    const priceInfo = await getKbPrice(ticker);
+
+    if (!priceInfo || priceInfo.dealPrice === 0) {
+      throw new Error(`KB: price not found for complex ${ticker}`);
+    }
+
+    // dealPrice는 만원 단위 → 원으로 변환
+    return {
+      price: priceInfo.dealPrice * 10000,
+      currency: 'KRW',
+      timestamp: new Date(),
+      source: 'kb_real_estate',
+      stale: false,
+    };
   },
 
   async fetchBatch(tickers: string[]): Promise<Map<string, PriceResult>> {
     const results = new Map<string, PriceResult>();
-    // 자동 시세 조회 불가 — 빈 결과 반환
-    void tickers;
+    const fetches = tickers.map(async (ticker) => {
+      try {
+        const result = await this.fetchPrice(ticker);
+        results.set(ticker, result);
+      } catch {
+        // Skip failed
+      }
+    });
+    await Promise.allSettled(fetches);
     return results;
   },
 };
