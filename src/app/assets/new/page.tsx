@@ -209,6 +209,7 @@ export default function NewAssetPage() {
           }
           case 'gold':
             assetData.name = '금 현물';
+            assetData.ticker = 'GOLD';
             assetData.quantity = Number(grams) || 0;
             assetData.brokerage = brokerage || null;
             assetData.price_source = 'gold_exchange';
