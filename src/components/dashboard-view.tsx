@@ -152,6 +152,12 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               📈 주식
             </Link>
             <Link
+              href="/returns"
+              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
+            >
+              💰 수익률
+            </Link>
+            <Link
               href="/assets/new"
               className="rounded-lg bg-primary px-3 sm:px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
@@ -178,6 +184,12 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
             📈 주식
+          </Link>
+          <Link
+            href="/returns"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            💰 수익률
           </Link>
         </div>
       </header>
