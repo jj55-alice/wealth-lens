@@ -2,6 +2,18 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.2.0] - 2026-04-07
+
+### Added
+- 리밸런싱 MVP: 목표 자산 배분 설정 + 현재 vs 목표 비교 + 조정 제안
+- `/rebalancing` 페이지: 유동 자산 총액, 도넛 차트 비교, 리밸런싱 제안 카드
+- `/settings`에 리밸런싱 목표 섹션: 프리셋(보수형/균형형/공격형) + 직접설정 + 100% 검증
+- `/api/rebalancing` API: 목표 CRUD + 합계 100% 서버 검증
+- `src/lib/rebalancing.ts` 제안 엔진: 자산 클래스별 비교, stale 경고, 환율 적용
+- `rebalancing_targets` DB 테이블 + RLS 정책
+- 대시보드에 리밸런싱 진입점 카드 추가
+- 리밸런싱 제안 엔진 테스트 10개 (rebalancing.test.ts)
+
 ## [0.1.1.0] - 2026-04-06
 
 ### Added
