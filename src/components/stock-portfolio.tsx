@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatKRW, formatPercent, formatUsdKrw, formatUsd } from '@/lib/format';
@@ -84,15 +85,75 @@ export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
       </Card>
 
       {/* 종목별 수익률 */}
+      <StockList stockReturns={stockReturns} exchangeRate={exchangeRate} />
+
+      {/* 배당금 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">종목별 수익률</CardTitle>
+          <CardTitle className="text-sm">배당금 정보</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DividendCalendar stocks={stocks} dividends={dividends} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+type SortKey = 'name' | 'value' | 'return';
+
+interface StockReturn extends AssetWithPrice {
+  purchasePrice: number | null;
+  returnRate: number | null;
+  profit: number | null;
+}
+
+function StockList({ stockReturns, exchangeRate }: { stockReturns: StockReturn[]; exchangeRate?: number | null }) {
+  const [sortKey, setSortKey] = useState<SortKey>('value');
+
+  const sorted = useMemo(() => {
+    const items = [...stockReturns];
+    switch (sortKey) {
+      case 'name':
+        return items.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      case 'value':
+        return items.sort((a, b) => b.current_value - a.current_value);
+      case 'return':
+        return items.sort((a, b) => (b.returnRate ?? -Infinity) - (a.returnRate ?? -Infinity));
+    }
+  }, [stockReturns, sortKey]);
+
+  const sortButtons: { key: SortKey; label: string }[] = [
+    { key: 'name', label: '가나다순' },
+    { key: 'value', label: '금액순' },
+    { key: 'return', label: '수익률순' },
+  ];
+
+  return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">종목별 수익률</CardTitle>
+            <div className="flex gap-1">
+              {sortButtons.map(btn => (
+                <button
+                  key={btn.key}
+                  onClick={() => setSortKey(btn.key)}
+                  className={`px-2 py-1 text-[10px] rounded-full transition-colors ${
+                    sortKey === btn.key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {stockReturns
-              .sort((a, b) => b.current_value - a.current_value)
-              .map((s) => (
+            {sorted.map((s) => (
                 <div
                   key={s.id}
                   className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
@@ -135,15 +196,5 @@ export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
         </CardContent>
       </Card>
 
-      {/* 배당금 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">배당금 정보</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DividendCalendar stocks={stocks} dividends={dividends} />
-        </CardContent>
-      </Card>
-    </div>
   );
 }
