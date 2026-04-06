@@ -143,6 +143,7 @@ export default function SettingsPage() {
         let msg = `국내 ${data.domestic}종목 + 해외 ${data.foreign}��목 동기화 완료`;
         if (data.deleted > 0) msg += ` (${data.deleted}종목 매도 삭제)`;
         if (data.errors?.length > 0) msg += `\n⚠️ ${data.errors.join(', ')}`;
+        if (data.debug) msg += `\n[debug] output1 items: ${data.debug?.output1?.length ?? 0}, output2: ${JSON.stringify(data.debug?.output2 ?? {}).slice(0, 200)}`;
         setKisSyncResult(msg);
       }
     } catch {

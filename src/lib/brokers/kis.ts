@@ -117,6 +117,15 @@ async function fetchDomesticHoldings(
   }
 
   const data = await res.json();
+
+  if (data.rt_cd !== '0') {
+    const msg = (data.msg1 || '').trim();
+    if (msg.includes('금현물계좌')) {
+      throw new Error('금현물 전용 계좌는 주식 조회가 불가합니다. 주식 계좌번호를 입력해주세요.');
+    }
+    throw new Error(`국내 조회 에러: ${msg || data.msg_cd || JSON.stringify(data).slice(0, 200)}`);
+  }
+
   const items = data?.output1 ?? [];
 
   return items
@@ -170,6 +179,11 @@ async function fetchForeignHoldings(
   }
 
   const data = await res.json();
+
+  if (data.rt_cd !== '0') {
+    throw new Error(`해��� 조회 에러: ${data.msg1 || data.msg_cd || JSON.stringify(data).slice(0, 200)}`);
+  }
+
   const items = data?.output1 ?? [];
 
   // NYSE도 조회

@@ -137,11 +137,44 @@ export async function POST() {
     await fetch(new URL('/api/prices', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').toString(), { method: 'POST' });
   } catch { /* ignore */ }
 
+  // 디버그: raw API 응답 포함 (금현물 등 누락 원인 확인용)
+  let debugRaw = null;
+  try {
+    const [acctPrefix, acctSuffix] = hh.kis_account_no!.split('-');
+    const debugRes = await fetch(
+      `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/trading/inquire-balance?` +
+      new URLSearchParams({
+        CANO: acctPrefix,
+        ACNT_PRDT_CD: acctSuffix,
+        AFHR_FLPR_YN: 'N',
+        OFL_YN: '',
+        INQR_DVSN: '02',
+        UNPR_DVSN: '01',
+        FUND_STTL_ICLD_YN: 'N',
+        FNCG_AMT_AUTO_RDPT_YN: 'N',
+        PRCS_DVSN: '01',
+        CTX_AREA_FK100: '',
+        CTX_AREA_NK100: '',
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          authorization: `Bearer ${token}`,
+          appkey: hh.kis_app_key!,
+          appsecret: hh.kis_app_secret!,
+          tr_id: 'TTTC8434R',
+        },
+      },
+    );
+    debugRaw = await debugRes.json();
+  } catch { /* ignore */ }
+
   return NextResponse.json({
     synced,
     domestic: holdings.filter(h => h.market === 'domestic').length,
     foreign: holdings.filter(h => h.market === 'foreign').length,
     deleted: soldTickers.length,
     errors: apiErrors,
+    debug: debugRaw,
   });
 }
