@@ -60,6 +60,15 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [showKbSearch, setShowKbSearch] = useState(false);
   const [accountAlias, setAccountAlias] = useState('');
 
+  // 사용자 등록 계좌 (퀵픽)
+  const [userAccounts, setUserAccounts] = useState<{ id: string; brokerage: string; alias: string }[]>([]);
+  useEffect(() => {
+    fetch('/api/accounts')
+      .then(r => r.json())
+      .then(d => setUserAccounts(d.accounts ?? []))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     async function load() {
       const supabase = createClient();
@@ -368,6 +377,33 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
                 <Input value={asset.ticker ?? ''} disabled className="bg-muted" />
                 <p className="text-xs text-muted-foreground">종목은 변경할 수 없습니다</p>
               </div>
+              {userAccounts.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>내 계좌 (빠른 선택)</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {userAccounts.map((acc) => {
+                      const isActive = brokerage === acc.brokerage && accountAlias === acc.alias;
+                      return (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => {
+                            setBrokerage(acc.brokerage);
+                            setAccountAlias(acc.alias);
+                          }}
+                          className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                            isActive
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-muted/30 hover:bg-muted'
+                          }`}
+                        >
+                          {acc.brokerage} · {acc.alias}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>증권사</Label>
                 <Select value={brokerage} onValueChange={(v) => v && setBrokerage(v)}>

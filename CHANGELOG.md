@@ -2,6 +2,14 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.2] - 2026-04-07
+
+### Changed
+- **계좌를 사용자별로 분리**: 가구를 공유하는 경우에도 다른 사람의 계좌가 보이지 않도록 `household_accounts`를 user 단위로 변경. `user_id` 컬럼 추가, RLS는 `user_id = auth.uid()` 기반. unique 제약은 `(user_id, brokerage, alias)`로 변경. 기존 row는 가구 owner에게 자동 할당 (`supabase/migrations/20260408000002_account_per_user.sql`).
+
+### Added
+- **주식 수정 페이지 퀵픽**: `/assets/[id]/edit` 주식 분기에도 사용자가 등록한 계좌를 한 번에 적용하는 빠른 선택 버튼 추가. 신규 등록 폼과 동일한 UI 패턴 (`src/app/assets/[id]/edit/page.tsx`).
+
 ## [0.1.3.1] - 2026-04-07
 
 ### Fixed (디자인 리뷰)

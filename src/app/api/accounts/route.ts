@@ -1,23 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// GET: 사용자 등록 계좌 목록
+// GET: 현재 사용자의 등록 계좌 목록 (사용자별 분리)
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
 
-  const { data: membership } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!membership) return NextResponse.json({ error: '가구 없음' }, { status: 404 });
-
   const { data: accounts } = await supabase
     .from('household_accounts')
     .select('id, brokerage, alias')
-    .eq('household_id', membership.household_id)
+    .eq('user_id', user.id)
     .order('brokerage')
     .order('alias');
 
@@ -50,7 +43,12 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from('household_accounts')
-    .insert({ household_id: membership.household_id, brokerage, alias })
+    .insert({
+      household_id: membership.household_id,
+      user_id: user.id,
+      brokerage,
+      alias,
+    })
     .select('id, brokerage, alias')
     .single();
 
