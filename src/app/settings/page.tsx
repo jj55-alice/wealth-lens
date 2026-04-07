@@ -808,7 +808,9 @@ function AccountManagementSection() {
               <Label className="text-xs text-muted-foreground">소유자</Label>
               <Select value={targetUserId} onValueChange={(v) => v && setTargetUserId(v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="소유자 선택" />
+                  <SelectValue placeholder="소유자 선택">
+                    {targetUserId ? memberLabel(targetUserId) : '소유자 선택'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {[currentUserId, ...members.map(m => m.user_id).filter(id => id !== currentUserId)]

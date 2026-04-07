@@ -2,6 +2,12 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.7] - 2026-04-07
+
+### Fixed
+- **6개 계좌를 다시 아라(jj55.alice@gmail.com)로 되돌림**: v0.1.3.6에서 본인을 잘못 추정해 희성으로 옮긴 것을 원래대로 b0568ba4로 되돌림. (사용자 본인이 아라.)
+- **소유자 셀렉트박스가 hash로 표시되던 문제**: shadcn/Radix `<SelectValue>`가 옵션이 mount되기 전에는 raw value(user_id)를 표시할 수 있어서 hash가 보였음. `<SelectValue>` children에 `memberLabel(targetUserId)` 명시해 항상 닉네임이 표시되도록 fix (`src/app/settings/page.tsx`).
+
 ## [0.1.3.6] - 2026-04-07
 
 ### Fixed
