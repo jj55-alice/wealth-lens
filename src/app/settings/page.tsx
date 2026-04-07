@@ -679,9 +679,10 @@ function AccountManagementSection() {
 
   function memberLabel(userId: string): string {
     const m = members.find(mm => mm.user_id === userId);
-    if (!m) return '나';
-    if (userId === currentUserId) return `${m.nickname || m.email || '나'} (나)`;
-    return m.nickname || m.email || '가족';
+    if (!m) return userId === currentUserId ? '나' : '가족';
+    // 아이디(이메일)를 우선 표시. 본인이면 "(나)" 표시.
+    const id = m.email || m.nickname || userId.slice(0, 8);
+    return userId === currentUserId ? `${id} (나)` : id;
   }
 
   async function handleAdd() {

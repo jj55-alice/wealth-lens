@@ -2,6 +2,11 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.5] - 2026-04-07
+
+### Changed
+- **계좌 관리 멤버 라벨이 이메일 우선 표시**: 닉네임 대신 가입한 이메일(아이디)를 우선 노출. 같은 이름의 가족이 있어도 헷갈리지 않음. 본인 옆에는 "(나)" 표시 (`src/app/settings/page.tsx`).
+
 ## [0.1.3.4] - 2026-04-07
 
 ### Fixed
