@@ -18,6 +18,7 @@ import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
 import { GoalProjection } from '@/components/goal-projection';
+import { BriefingCards } from '@/components/briefing-cards';
 import { MonthlyChange } from '@/components/monthly-change';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
@@ -306,6 +307,9 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                 </div>
               </CardContent>
             </Card>
+
+            {/* AI 브리핑 (Phase 4) */}
+            {ownerFilter === 'all' && <BriefingCards />}
 
             {/* Monthly Change */}
             {ownerFilter === 'all' && (

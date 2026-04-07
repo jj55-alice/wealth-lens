@@ -14,10 +14,29 @@ const MODEL_PRICES: Record<string, { in: number; out: number }> = {
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
 /**
- * 액션 단어 (CEO 리뷰 결정: 절대 사용 금지).
- * 카드 카피에 이런 단어가 있으면 제거하거나 카드 자체를 dropping.
+ * 액션 phrase (CEO 리뷰 결정: 절대 사용 금지).
+ * 단순 단어("매수", "매도")는 정상 합성어("매수가", "매도세")가 있어서 phrase로만 매칭.
+ * 카드 카피에 이런 phrase가 있으면 카드 자체를 dropping.
  */
-const FORBIDDEN_WORDS = ['매수', '매도', '추가매수', '추가 매수', '추가 매도', '정리', '팔아라', '사라', '매도세', '매수세'];
+const FORBIDDEN_PHRASES = [
+  '추가 매수',
+  '추가매수',
+  '추가 매도',
+  '추가매도',
+  '매수 추천',
+  '매수 권장',
+  '매수 권유',
+  '매도 추천',
+  '매도 권장',
+  '매도 권유',
+  '매수하세요',
+  '매도하세요',
+  '팔아라',
+  '사라',
+  '비중 확대 권장',
+  '비중 축소 권장',
+  '처분 권장',
+];
 
 export async function generateBriefing(
   holdings: HoldingContext[],
@@ -153,9 +172,9 @@ export function parseCards(text: string): BriefingCard[] {
     if (!ticker || !name || !headline) continue;
     if (!validSignals.includes(signal)) continue;
 
-    // 액션 단어 필터: headline 또는 context에 금지어 포함 시 카드 dropping
-    const combined = `${headline} ${context}`.toLowerCase();
-    if (FORBIDDEN_WORDS.some((w) => combined.includes(w.toLowerCase()))) {
+    // 액션 phrase 필터: headline 또는 context에 금지 phrase 포함 시 카드 dropping
+    const combined = `${headline} ${context}`;
+    if (FORBIDDEN_PHRASES.some((p) => combined.includes(p))) {
       continue;
     }
 
