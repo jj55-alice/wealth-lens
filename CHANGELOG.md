@@ -2,6 +2,11 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.9] - 2026-04-07
+
+### Fixed
+- **다른 계좌인데도 종목이 합쳐지던 문제**: 자산 등록 시 같은 ticker의 기존 자산이 있으면 합치는 로직이 매칭 키에 `brokerage`만 보고 `account_alias`는 무시했음. 그래서 같은 키움증권의 "메인"과 "ISA" 계좌가 하나로 합쳐졌음. 매칭 키에 `account_alias`를 추가해서 같은 (owner + 금융사 + 별칭)일 때만 합치도록 fix (`src/app/assets/new/page.tsx`).
+
 ## [0.1.3.8] - 2026-04-07
 
 ### Fixed

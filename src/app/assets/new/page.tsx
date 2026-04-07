@@ -245,7 +245,9 @@ export default function NewAssetPage() {
             break;
         }
 
-        // 같은 종목이 이미 있으면 합치기 (수량 합산 + 평균 매수가)
+        // 같은 종목이 같은 계좌에 이미 있으면 합치기 (수량 합산 + 평균 매수가)
+        // 매칭 키: ticker + category + owner + brokerage + account_alias
+        // brokerage나 account_alias가 다르면 별도의 row로 분리해서 보관
         let insertedAsset: { id: string } | null = null;
         const assetTicker = assetData.ticker as string | undefined;
 
@@ -259,6 +261,14 @@ export default function NewAssetPage() {
             .eq('owner_user_id', ownerUserId || user.id);
           if (assetData.brokerage) {
             existingQuery = existingQuery.eq('brokerage', assetData.brokerage);
+          } else {
+            existingQuery = existingQuery.is('brokerage', null);
+          }
+          // 계좌 별칭도 매칭 키에 포함 (같은 키움증권의 메인 vs ISA를 분리)
+          if (assetData.account_alias) {
+            existingQuery = existingQuery.eq('account_alias', assetData.account_alias);
+          } else {
+            existingQuery = existingQuery.is('account_alias', null);
           }
           const { data: existing } = await existingQuery.maybeSingle();
 
