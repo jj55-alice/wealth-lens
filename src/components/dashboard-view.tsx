@@ -167,6 +167,12 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               + 등록
             </Link>
             <Link
+              href="/rebalancing"
+              className="hidden sm:inline-flex rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
+            >
+              리밸런싱
+            </Link>
+            <Link
               href="/settings"
               className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
             >
@@ -180,19 +186,25 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             href="/history"
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
-            📊 히스토리
+            히스토리
           </Link>
           <Link
             href="/stocks"
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
-            📈 주식
+            주식
           </Link>
           <Link
             href="/returns"
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
-            💰 수익률
+            수익률
+          </Link>
+          <Link
+            href="/rebalancing"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            리밸런싱
           </Link>
         </div>
       </header>

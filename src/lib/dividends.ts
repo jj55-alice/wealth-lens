@@ -16,29 +16,40 @@ const USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)';
  * 국내주식 배당 정보 (네이버 금융)
  */
 export async function fetchKrxDividend(ticker: string): Promise<DividendInfo | null> {
-  try {
-    const res = await fetch(
-      `https://m.stock.naver.com/api/stock/${ticker}/dividend`,
-      { headers: { 'User-Agent': USER_AGENT } }
-    );
+  // 네이버 금융 배당 API 엔드포인트들 순차 시도
+  const endpoints = [
+    `https://m.stock.naver.com/api/stock/${ticker}/dividend`,
+    `https://m.stock.naver.com/front-api/v1/stock/${ticker}/dividend`,
+  ];
 
-    if (!res.ok) return null;
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) continue;
 
-    const data = await res.json();
-    const recent = data?.dividendInfos?.[0] ?? data?.[0];
-    if (!recent) return null;
+      const data = await res.json();
+      const recent = data?.dividendInfos?.[0] ?? data?.[0];
+      if (!recent) continue;
 
-    return {
-      ticker,
-      dividendPerShare: Number(recent.dividend ?? recent.dividendPerShare ?? 0),
-      dividendYield: Number(recent.dividendRate ?? recent.dividendYield ?? 0),
-      exDate: recent.exDividendDate ?? recent.exDate ?? null,
-      paymentDate: recent.paymentDate ?? null,
-      frequency: 'annual', // 한국 주식은 대부분 연 1회
-    };
-  } catch {
-    return null;
+      return {
+        ticker,
+        dividendPerShare: Number(recent.dividend ?? recent.dividendPerShare ?? 0),
+        dividendYield: Number(recent.dividendRate ?? recent.dividendYield ?? 0),
+        exDate: recent.exDividendDate ?? recent.exDate ?? null,
+        paymentDate: recent.paymentDate ?? null,
+        frequency: 'annual',
+      };
+    } catch {
+      continue;
+    }
   }
+
+  // 모든 엔드포인트 실패 시 — 네이버 금융 API 변경 가능성
+  console.warn(`국내주식 배당 조회 실패: ${ticker} (네이버 금융 API 엔드포인트 변경 가능)`);
+  return null;
 }
 
 /**

@@ -180,7 +180,7 @@ export default function NewAssetPage() {
             assetData.manual_value = Number(manualValue) || 0;
             if (purchasePrice) assetData.purchase_price = Number(purchasePrice);
             assetData.price_source = 'manual';
-            assetData.asset_class = 'alternative';
+            assetData.asset_class = 'real_estate';
             assetData.lease_expiry = leaseExpiry || null;
             break;
           case 'stock': {
@@ -211,6 +211,7 @@ export default function NewAssetPage() {
             assetData.name = '금 현물';
             assetData.ticker = 'GOLD';
             assetData.quantity = Number(grams) || 0;
+            if (purchasePrice) assetData.purchase_price = Number(purchasePrice);
             assetData.brokerage = brokerage || null;
             assetData.price_source = 'gold_exchange';
             assetData.asset_class = 'commodity';
@@ -221,7 +222,7 @@ export default function NewAssetPage() {
             assetData.quantity = Number(cryptoQuantity) || 0;
             assetData.brokerage = brokerage || null;
             assetData.price_source = 'upbit';
-            assetData.asset_class = 'alternative';
+            assetData.asset_class = 'crypto';
             break;
           case 'cash':
             assetData.name = name;
@@ -742,6 +743,19 @@ export default function NewAssetPage() {
                   min={0}
                   step="any"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>평균 매입가 (원/g)</Label>
+                <Input
+                  type="number"
+                  placeholder="예: 95000"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value)}
+                  min={0}
+                />
+                <p className="text-xs text-muted-foreground">
+                  현재 금 시세와 비교하여 수익률을 계산합니다
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>보관처</Label>

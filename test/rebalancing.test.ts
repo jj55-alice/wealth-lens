@@ -3,6 +3,7 @@ import { computeRebalancing, filterLiquidAssets, PRESETS } from '@/lib/rebalanci
 import type { AssetWithPrice } from '@/types/database';
 
 function mockAsset(overrides: Partial<AssetWithPrice> & { current_value: number }): AssetWithPrice {
+  const { current_value, ...rest } = overrides;
   return {
     id: Math.random().toString(),
     household_id: 'h1',
@@ -26,10 +27,10 @@ function mockAsset(overrides: Partial<AssetWithPrice> & { current_value: number 
     created_at: '',
     updated_at: '',
     current_price: null,
-    current_value: 0,
+    current_value,
     price_updated_at: null,
     is_stale: false,
-    ...overrides,
+    ...rest,
   } as AssetWithPrice;
 }
 
