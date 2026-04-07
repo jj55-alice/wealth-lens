@@ -49,8 +49,8 @@ export function DividendCalendar({ stocks, dividends }: Props) {
       {/* 연간 배당 요약 */}
       <div className="rounded-lg bg-muted/30 border border-border px-4 py-3">
         <p className="text-xs text-muted-foreground">연간 예상 배당금</p>
-        <p className="text-2xl font-bold">{formatKRW(totalAnnualDividend)}</p>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-2xl font-bold tabular-nums">{formatKRW(totalAnnualDividend)}</p>
+        <p className="text-xs text-muted-foreground mt-1 tabular-nums">
           월 평균 {formatKRW(Math.round(totalAnnualDividend / 12))}
         </p>
       </div>
@@ -83,8 +83,8 @@ export function DividendCalendar({ stocks, dividends }: Props) {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold">{formatKRW(d.annualAmount)}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm font-semibold tabular-nums">{formatKRW(d.annualAmount)}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">
                   {d.dividendPerShare.toLocaleString()}원 × {d.quantity}주
                 </p>
                 {d.exDate && (

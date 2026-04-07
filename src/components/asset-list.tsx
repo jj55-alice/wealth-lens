@@ -193,7 +193,7 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   {CATEGORY_LABELS[cat]}
                 </h3>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground tabular-nums">
                   {formatKRW(categoryTotal)}
                 </span>
               </div>
@@ -202,10 +202,10 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
                   {stockGroups.map((group) => (
                     <div key={group.key}>
                       <div className="flex items-center justify-between mb-1 px-3">
-                        <span className="text-[11px] font-medium text-muted-foreground">
+                        <span className="text-xs font-medium text-muted-foreground">
                           {group.key}
                         </span>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                        <span className="text-xs text-muted-foreground tabular-nums">
                           {formatKRW(group.total)}
                         </span>
                       </div>

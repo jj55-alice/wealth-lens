@@ -636,6 +636,7 @@ function AccountManagementSection() {
   const [brokerage, setBrokerage] = useState('');
   const [alias, setAlias] = useState('');
   const [adding, setAdding] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null);
   const { toast } = useToast();
 
   async function load() {
@@ -678,10 +679,13 @@ function AccountManagementSection() {
     setAdding(false);
   }
 
-  async function handleDelete(id: string) {
+  async function confirmDelete() {
+    if (!deleteTarget) return;
     try {
-      await fetch(`/api/accounts?id=${id}`, { method: 'DELETE' });
-      setAccounts(accounts.filter(a => a.id !== id));
+      await fetch(`/api/accounts?id=${deleteTarget.id}`, { method: 'DELETE' });
+      setAccounts(accounts.filter(a => a.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      toast('계좌가 삭제되었습니다', 'success');
     } catch {
       toast('삭제 실패', 'error');
     }
@@ -700,25 +704,32 @@ function AccountManagementSection() {
         {loading ? (
           <Skeleton className="h-16 w-full" />
         ) : accounts.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">등록된 계좌가 없습니다</p>
+          <div className="rounded-lg border border-dashed border-border py-6 px-4 text-center">
+            <p className="text-sm text-muted-foreground mb-1">아직 등록된 계좌가 없어요</p>
+            <p className="text-xs text-muted-foreground">
+              아래에서 첫 번째 계좌를 추가해보세요
+            </p>
+          </div>
         ) : (
           <div className="space-y-1.5">
             {accounts.map((acc) => (
               <div
                 key={acc.id}
-                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                className="group flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div className="text-sm">
                   <span className="font-medium">{acc.brokerage}</span>
                   <span className="text-muted-foreground"> · {acc.alias}</span>
                 </div>
-                <button
+                <Button
                   type="button"
-                  onClick={() => handleDelete(acc.id)}
-                  className="text-xs text-red-500 hover:text-red-600 px-2 py-1"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteTarget(acc)}
+                  className="h-7 text-xs px-2 text-red-500 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                 >
                   삭제
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -754,6 +765,27 @@ function AccountManagementSection() {
           </Button>
         </div>
       </CardContent>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>계좌 삭제</DialogTitle>
+            <DialogDescription>
+              &quot;{deleteTarget?.brokerage} · {deleteTarget?.alias}&quot; 계좌를 삭제하시겠습니까?
+              이미 등록된 자산은 영향을 받지 않지만, 퀵픽 목록에서 사라집니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

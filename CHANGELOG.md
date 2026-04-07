@@ -2,6 +2,16 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.1] - 2026-04-07
+
+### Fixed (디자인 리뷰)
+- **계좌 삭제 확인 다이얼로그 추가**: 설정 페이지에서 클릭 한 번에 계좌가 사라지던 문제. asset-list와 동일한 패턴으로 confirmation Dialog 추가 (`src/app/settings/page.tsx`).
+- **계좌 empty state 보강**: "등록된 계좌가 없습니다" 한 줄 텍스트 → dashed border 카드 + 따뜻한 안내 문구. DESIGN.md "데이터 없음은 디자인이 아님" 원칙.
+- **금액 표시 tabular-nums 강제 적용 누락 수정**: 카테고리 합계 (`asset-list.tsx`), 연간 배당 hero, 종목별 배당 금액 (`dividend-calendar.tsx`)에서 빠져 있던 `tabular-nums` 추가.
+- **퀵픽 버튼 형태 정정**: `rounded-full` → `rounded-md`. DESIGN.md에서 `rounded-full`은 프로필 이미지/범례 전용.
+- **매직 폰트 사이즈 제거**: `text-[10px]`, `text-[11px]` → `text-xs`. DESIGN.md 스케일 준수.
+- **계좌 삭제 버튼 일관성**: 항상 빨간색 노출되던 텍스트 버튼 → asset-list와 동일한 ghost variant + group-hover 패턴.
+
 ## [0.1.3.0] - 2026-04-07
 
 ### Added

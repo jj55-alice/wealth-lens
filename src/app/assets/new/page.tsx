@@ -660,7 +660,7 @@ export default function NewAssetPage() {
                             setBrokerage(acc.brokerage);
                             setAccountAlias(acc.alias);
                           }}
-                          className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                          className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
                             isActive
                               ? 'border-primary bg-primary text-primary-foreground'
                               : 'border-border bg-muted/30 hover:bg-muted'
@@ -671,7 +671,7 @@ export default function NewAssetPage() {
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     설정 → 주식 계좌 관리에서 등록할 수 있어요
                   </p>
                 </div>
