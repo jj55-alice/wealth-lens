@@ -111,14 +111,15 @@ export default function NewAssetPage() {
   const [accountType, setAccountType] = useState('other');
   const [accountAlias, setAccountAlias] = useState('');
 
-  // 사용자 등록 계좌 (퀵픽)
+  // 사용자 등록 계좌 (퀵픽) — ownerUserId 변경 시 그 사용자 계좌만 표시
   const [userAccounts, setUserAccounts] = useState<{ id: string; brokerage: string; alias: string }[]>([]);
   useEffect(() => {
-    fetch('/api/accounts')
+    if (!ownerUserId) return;
+    fetch(`/api/accounts?owner=${ownerUserId}`)
       .then(r => r.json())
       .then(d => setUserAccounts(d.accounts ?? []))
       .catch(() => {});
-  }, []);
+  }, [ownerUserId]);
 
   // Real estate fields
   const [realEstateType, setRealEstateType] = useState('owned');

@@ -60,14 +60,15 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [showKbSearch, setShowKbSearch] = useState(false);
   const [accountAlias, setAccountAlias] = useState('');
 
-  // 사용자 등록 계좌 (퀵픽)
+  // 사용자 등록 계좌 (퀵픽) — 자산의 owner 기준으로 fetch
   const [userAccounts, setUserAccounts] = useState<{ id: string; brokerage: string; alias: string }[]>([]);
   useEffect(() => {
-    fetch('/api/accounts')
+    if (!ownerUserId) return;
+    fetch(`/api/accounts?owner=${ownerUserId}`)
       .then(r => r.json())
       .then(d => setUserAccounts(d.accounts ?? []))
       .catch(() => {});
-  }, []);
+  }, [ownerUserId]);
 
   useEffect(() => {
     async function load() {

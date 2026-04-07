@@ -2,6 +2,15 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.4] - 2026-04-07
+
+### Fixed
+- **가족 구성원 계좌 등록 불가**: v0.1.3.2에서 계좌를 user_id 단위로 분리한 게 너무 strict해서, 가구 owner가 배우자의 계좌를 미리 등록해줄 방법이 없었음. RLS 정책을 "같은 가구 멤버는 모두 조회/생성/삭제 가능"으로 변경하고, API에 `?owner=<user_id>` 필터 + POST body의 `user_id` 지정 지원 추가. 표시 시 분리는 UI/API 레이어에서 담당 (`supabase/migrations/20260408000003_account_household_visible.sql`).
+
+### Changed
+- **Settings 계좌 관리에 소유자 선택**: 가구 멤버가 2명 이상이면 "소유자" 셀렉트가 노출되어, 내 계좌든 배우자 계좌든 한 화면에서 등록 가능. 등록된 계좌는 멤버별로 그룹핑되어 표시 (`src/app/settings/page.tsx`).
+- **자산 등록/수정 퀵픽이 owner 기준으로 fetch**: 자산 소유자가 바뀌면 그 사람 명의의 계좌만 퀵픽에 표시. 부부가 한 화면에서 작업할 때 헷갈리지 않음.
+
 ## [0.1.3.3] - 2026-04-07
 
 ### Fixed

@@ -628,11 +628,21 @@ interface UserAccount {
   id: string;
   brokerage: string;
   alias: string;
+  user_id: string;
+}
+
+interface HouseholdMember {
+  user_id: string;
+  email: string;
+  nickname: string | null;
 }
 
 function AccountManagementSection() {
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [targetUserId, setTargetUserId] = useState('');
   const [brokerage, setBrokerage] = useState('');
   const [alias, setAlias] = useState('');
   const [adding, setAdding] = useState(false);
@@ -641,7 +651,22 @@ function AccountManagementSection() {
 
   async function load() {
     try {
-      const res = await fetch('/api/accounts');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        if (!targetUserId) setTargetUserId(user.id);
+      }
+
+      // 가구 멤버 조회
+      const membersRes = await fetch('/api/invite');
+      const membersData = await membersRes.json();
+      if (Array.isArray(membersData.members)) {
+        setMembers(membersData.members);
+      }
+
+      // 가구 전체 계좌 조회 (owner 정보 포함)
+      const res = await fetch('/api/accounts?owner=all');
       const data = await res.json();
       setAccounts(data.accounts ?? []);
     } catch {
@@ -650,7 +675,14 @@ function AccountManagementSection() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function memberLabel(userId: string): string {
+    const m = members.find(mm => mm.user_id === userId);
+    if (!m) return '나';
+    if (userId === currentUserId) return `${m.nickname || m.email || '나'} (나)`;
+    return m.nickname || m.email || '가족';
+  }
 
   async function handleAdd() {
     if (!brokerage || !alias.trim()) {
@@ -662,7 +694,11 @@ function AccountManagementSection() {
       const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brokerage, alias: alias.trim() }),
+        body: JSON.stringify({
+          brokerage,
+          alias: alias.trim(),
+          user_id: targetUserId || currentUserId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -691,6 +727,25 @@ function AccountManagementSection() {
     }
   }
 
+  // 멤버별로 그룹핑 (현재 사용자 먼저)
+  const groupedAccounts = (() => {
+    const groups = new Map<string, UserAccount[]>();
+    for (const acc of accounts) {
+      const list = groups.get(acc.user_id) ?? [];
+      list.push(acc);
+      groups.set(acc.user_id, list);
+    }
+    const orderedIds = [
+      currentUserId,
+      ...members.map(m => m.user_id).filter(id => id !== currentUserId),
+    ];
+    return orderedIds
+      .filter(id => groups.has(id))
+      .map(id => ({ userId: id, items: groups.get(id)! }));
+  })();
+
+  const showOwnerSelect = members.length > 1;
+
   return (
     <Card>
       <CardHeader>
@@ -711,31 +766,59 @@ function AccountManagementSection() {
             </p>
           </div>
         ) : (
-          <div className="space-y-1.5">
-            {accounts.map((acc) => (
-              <div
-                key={acc.id}
-                className="group flex items-center justify-between rounded-lg border border-border px-3 py-2"
-              >
-                <div className="text-sm">
-                  <span className="font-medium">{acc.brokerage}</span>
-                  <span className="text-muted-foreground"> · {acc.alias}</span>
+          <div className="space-y-3">
+            {groupedAccounts.map((group) => (
+              <div key={group.userId}>
+                {showOwnerSelect && (
+                  <p className="text-xs font-medium text-muted-foreground mb-1 px-1">
+                    {memberLabel(group.userId)}
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  {group.items.map((acc) => (
+                    <div
+                      key={acc.id}
+                      className="group flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                    >
+                      <div className="text-sm">
+                        <span className="font-medium">{acc.brokerage}</span>
+                        <span className="text-muted-foreground"> · {acc.alias}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteTarget(acc)}
+                        className="h-7 text-xs px-2 text-red-500 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                      >
+                        삭제
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteTarget(acc)}
-                  className="h-7 text-xs px-2 text-red-500 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                >
-                  삭제
-                </Button>
               </div>
             ))}
           </div>
         )}
 
         <div className="space-y-2 pt-2 border-t border-border">
+          {showOwnerSelect && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">소유자</Label>
+              <Select value={targetUserId} onValueChange={(v) => v && setTargetUserId(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="소유자 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[currentUserId, ...members.map(m => m.user_id).filter(id => id !== currentUserId)]
+                    .filter(id => id)
+                    .map((id) => (
+                      <SelectItem key={id} value={id}>{memberLabel(id)}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Select value={brokerage} onValueChange={(v) => v && setBrokerage(v)}>
               <SelectTrigger>
