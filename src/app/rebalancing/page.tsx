@@ -51,7 +51,7 @@ export default function RebalancingPage() {
 
     // 리밸런싱 계산
     if (targetsRes.targets?.length > 0) {
-      const result = computeRebalancing(fetchedAssets, targetsRes.targets, rateRes.rate);
+      const result = computeRebalancing(fetchedAssets, targetsRes.targets);
       setSuggestions(result.suggestions);
       setStatus(result.status);
       setTotalLiquid(result.totalLiquid);

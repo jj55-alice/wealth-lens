@@ -2,6 +2,11 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.2.1] - 2026-04-07
+
+### Fixed
+- 리밸런싱 페이지 잔고가 1700억대로 부풀려지는 버그 수정. `price_cache`는 이미 USD→KRW 변환 후 저장되는데 `computeRebalancing`이 yahoo_finance 자산에 환율을 또 한번 곱해서 약 1460배 부풀려졌음. 해외주식 1.48억 × 환율 ≈ 1700억대로 표시되던 문제. 환율 곱셈 분기를 제거하고 대시보드와 동일하게 `current_value`를 그대로 합산하도록 수정 (`src/lib/rebalancing.ts`).
+
 ## [0.1.2.0] - 2026-04-07
 
 ### Added

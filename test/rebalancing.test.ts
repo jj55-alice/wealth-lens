@@ -109,15 +109,16 @@ describe('computeRebalancing', () => {
     expect(result.hasStaleWarning).toBe(true);
   });
 
-  it('환율 적용: USD 자산은 KRW로 환산', () => {
+  it('current_value는 항상 KRW로 정규화되어 있으므로 환율을 곱하지 않는다', () => {
+    // price_cache가 USD→KRW 변환 후 저장하므로, yahoo_finance 자산도 current_value가 이미 KRW
     const assets = [
       mockAsset({ asset_class: 'domestic_equity', current_value: 500, price_source: 'krx' }),
-      mockAsset({ asset_class: 'crypto', current_value: 10, price_source: 'yahoo_finance' }),
+      mockAsset({ asset_class: 'crypto', current_value: 500, price_source: 'yahoo_finance' }),
     ];
-    // 환율 50이면 10 * 50 = 500 → 50:50
-    const result = computeRebalancing(assets, targets, 50);
-    expect(result.status).toBe('balanced');
+    // 환율 인자를 넘겨도 무시되어야 함 (regression 방지)
+    const result = computeRebalancing(assets, targets, 1460);
     expect(result.totalLiquid).toBe(1000);
+    expect(result.status).toBe('balanced');
   });
 
   it('매도/매수 금액이 정확하다', () => {

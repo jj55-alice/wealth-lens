@@ -51,17 +51,14 @@ export function filterLiquidAssets(assets: AssetWithPrice[]): AssetWithPrice[] {
 export function computeRebalancing(
   assets: AssetWithPrice[],
   targets: RebalancingTarget[],
-  exchangeRate?: number | null,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _exchangeRate?: number | null,
 ): { allocations: AllocationItem[]; suggestions: RebalancingSuggestion[]; status: RebalancingStatus; totalLiquid: number; hasStaleWarning: boolean } {
   const liquid = filterLiquidAssets(assets);
 
-  // 환율 적용: yahoo_finance 자산은 KRW로 환산
-  const totalLiquid = liquid.reduce((sum, a) => {
-    if (a.price_source === 'yahoo_finance' && exchangeRate) {
-      return sum + a.current_value * exchangeRate;
-    }
-    return sum + a.current_value;
-  }, 0);
+  // current_value는 항상 KRW로 정규화되어 있음 (price_cache가 USD→KRW 변환 후 저장).
+  // 따라서 환율 곱셈 없이 그대로 합산. 대시보드와 동일한 처리.
+  const totalLiquid = liquid.reduce((sum, a) => sum + a.current_value, 0);
 
   if (totalLiquid === 0 || targets.length === 0) {
     return { allocations: [], suggestions: [], status: 'balanced', totalLiquid, hasStaleWarning: false };
@@ -73,9 +70,7 @@ export function computeRebalancing(
   for (const a of liquid) {
     const cls = a.asset_class ?? 'cash_equiv';
     const prev = classValues.get(cls) ?? { value: 0, staleCount: 0, totalCount: 0 };
-    const value = a.price_source === 'yahoo_finance' && exchangeRate
-      ? a.current_value * exchangeRate
-      : a.current_value;
+    const value = a.current_value;
     classValues.set(cls, {
       value: prev.value + value,
       staleCount: prev.staleCount + (a.is_stale ? 1 : 0),
