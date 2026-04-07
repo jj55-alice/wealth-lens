@@ -680,9 +680,9 @@ function AccountManagementSection() {
   function memberLabel(userId: string): string {
     const m = members.find(mm => mm.user_id === userId);
     if (!m) return userId === currentUserId ? '나' : '가족';
-    // 아이디(이메일)를 우선 표시. 본인이면 "(나)" 표시.
-    const id = m.email || m.nickname || userId.slice(0, 8);
-    return userId === currentUserId ? `${id} (나)` : id;
+    // 닉네임 우선, 폴백은 이메일의 @ 앞부분
+    const label = m.nickname || (m.email ? m.email.split('@')[0] : '가족');
+    return userId === currentUserId ? `${label} (나)` : label;
   }
 
   async function handleAdd() {

@@ -2,6 +2,13 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.6] - 2026-04-07
+
+### Fixed
+- **계좌 6개를 본인(희성) 소유로 마이그레이션**: v0.1.3.2 마이그레이션이 가구 owner를 추정해서 첫 번째 멤버(아라)에게 잘못 할당했던 문제. 6개 계좌(키움 해외/연금/ISA, 현대차 국내, 기타 우리사주, 신한 IRP)를 모두 thanatosv@naver.com (희성)로 직접 교정.
+- **계좌 소유자 라벨이 user_id hash로 표시되던 문제**: `memberLabel`이 닉네임 우선으로 되돌아감 (v0.1.3.5에서 email 우선으로 잘못 변경했던 것). 폴백은 이메일의 `@` 앞부분.
+- **자산 등록/수정 퀵픽이 owner 변경에 반응 안 하던 문제**: ownerUserId 변경 시마다 fetch하는 구조가 stale 응답이나 race를 만들 수 있어, 가구 전체 계좌(`?owner=all`)를 한 번만 fetch하고 클라이언트에서 `user_id`로 즉시 필터링. owner 클릭 즉시 갱신, 캐시 우려도 사라짐 (`cache: 'no-store'` 강제).
+
 ## [0.1.3.5] - 2026-04-07
 
 ### Changed
