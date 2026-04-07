@@ -18,6 +18,15 @@
 **Depends on:** 현재 자산 등록 폼 완성 후
 **Source:** 사용자 요청 2026-04-04
 
+## P1: KB부동산 API 대체 (엔드포인트 폐쇄)
+**What:** `src/lib/prices/kb.ts`의 KB API (`api.kbland.kr/land-complex/*`)가 404 반환. 공공데이터 실거래가 API 또는 네이버 부동산 API로 대체 필요.
+**Why:** 부동산 시세 자동 갱신(2-3), KB 단지 검색, KB 추정가 badge가 모두 동작하지 않음. 부동산은 한국 가구 자산의 대부분이라 시세 자동화가 핵심.
+**Context:** KB API는 비공식(웹 스크래핑)이라 언제든 변경 가능. 2026-04-05 확인 시 `complexSearch`, `complexDetail`, `priceInfo` 모두 404. 대안: (1) 공공데이터 실거래가 API (data.go.kr, 공식, API 키 발급 필요, 실거래가만 제공) (2) 네이버 부동산 API (비공식, rate limit 있지만 시세+매물 풍부). 관련 파일: `src/lib/prices/kb.ts`, `src/app/api/kb-search/route.ts`, `src/app/api/kb-refresh/route.ts`, `src/components/kb-search.tsx`.
+**Effort:** M (human: ~2일 / CC: ~30분)
+**Priority:** P1
+**Depends on:** 없음
+**Source:** QA 2026-04-05, KB API 엔드포인트 폐쇄 확인
+
 ## P1: 서비스화 전 API 키 암호화
 **What:** broker_credentials 테이블의 credentials jsonb를 pgcrypto 또는 앱 레벨 AES로 암호화
 **Why:** 다른 사용자의 증권 계좌 접근 권한을 plaintext로 저장하면 보안 사고. service_role_key가 모든 데이터 접근 가능.

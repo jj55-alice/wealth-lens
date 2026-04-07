@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { formatKRW } from '@/lib/format';
+import { PRESETS, CLASS_LABELS } from '@/lib/rebalancing';
+import type { RebalancingTarget } from '@/lib/rebalancing';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -37,6 +39,11 @@ export default function SettingsPage() {
   const [upbitSecretKey, setUpbitSecretKey] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState('');
+  const [kisAppKey, setKisAppKey] = useState('');
+  const [kisAppSecret, setKisAppSecret] = useState('');
+  const [kisAccountNo, setKisAccountNo] = useState('');
+  const [kisSyncing, setKisSyncing] = useState(false);
+  const [kisSyncResult, setKisSyncResult] = useState('');
   const [showLogout, setShowLogout] = useState(false);
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -60,6 +67,9 @@ export default function SettingsPage() {
           setGoalDividend(data.household.goal_annual_dividend ? String(data.household.goal_annual_dividend) : '');
           setUpbitAccessKey(data.household.upbit_access_key ?? '');
           setUpbitSecretKey(data.household.upbit_secret_key ?? '');
+          setKisAppKey(data.household.kis_app_key ?? '');
+          setKisAppSecret(data.household.kis_app_secret ?? '');
+          setKisAccountNo(data.household.kis_account_no ?? '');
         }
         if (data.user) {
           setUserEmail(data.user.email ?? '');
@@ -92,6 +102,9 @@ export default function SettingsPage() {
           goal_annual_dividend: goalDividend ? Number(goalDividend) : null,
           upbit_access_key: upbitAccessKey || null,
           upbit_secret_key: upbitSecretKey || null,
+          kis_app_key: kisAppKey || null,
+          kis_app_secret: kisAppSecret || null,
+          kis_account_no: kisAccountNo || null,
         }),
       });
       setSaved(true);
@@ -118,6 +131,27 @@ export default function SettingsPage() {
       setSyncResult('네트워크 오류');
     }
     setSyncing(false);
+  }
+
+  async function handleKisSync() {
+    setKisSyncing(true);
+    setKisSyncResult('');
+    try {
+      const res = await fetch('/api/kis-sync', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setKisSyncResult(data.error || '동기화 실패');
+      } else {
+        let msg = `국내 ${data.domestic}종목 + 해외 ${data.foreign}��목 동기화 완료`;
+        if (data.deleted > 0) msg += ` (${data.deleted}종목 매도 삭제)`;
+        if (data.errors?.length > 0) msg += `\n⚠️ ${data.errors.join(', ')}`;
+        if (data.debug) msg += `\n[debug] output1 items: ${data.debug?.output1?.length ?? 0}, output2: ${JSON.stringify(data.debug?.output2 ?? {}).slice(0, 200)}`;
+        setKisSyncResult(msg);
+      }
+    } catch {
+      setKisSyncResult('네트워크 오류');
+    }
+    setKisSyncing(false);
   }
 
   async function handleLogout() {
@@ -271,6 +305,66 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* 한국투자증권 연동 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">한국투자증권 연동</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              한국투자증권 API 키를 입력하면 보유 주식(국내+해외)을 자동으로 가져옵니다.
+              KIS Developers (apiportal.koreainvestment.com)에서 발급하세요.
+            </p>
+            <div className="space-y-1.5">
+              <Label>App Key</Label>
+              <Input
+                type="password"
+                value={kisAppKey}
+                onChange={(e) => setKisAppKey(e.target.value)}
+                placeholder="App Key"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>App Secret</Label>
+              <Input
+                type="password"
+                value={kisAppSecret}
+                onChange={(e) => setKisAppSecret(e.target.value)}
+                placeholder="App Secret"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>계좌번호</Label>
+              <Input
+                value={kisAccountNo}
+                onChange={(e) => setKisAccountNo(e.target.value)}
+                placeholder="00000000-00"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                8자리-2자리 형식 (예: 50012345-01)
+              </p>
+            </div>
+            {kisAppKey && kisAppSecret && kisAccountNo && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleKisSync}
+                disabled={kisSyncing}
+              >
+                {kisSyncing ? '동기화 중...' : '📈 주식 동기화'}
+              </Button>
+            )}
+            {kisSyncResult && (
+              <p className={`text-xs ${kisSyncResult.includes('완료') ? 'text-emerald-500' : 'text-red-500'}`}>
+                {kisSyncResult}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 리밸런싱 목표 */}
+        <RebalancingTargetSection />
+
         {/* 테마 */}
         <Card>
           <CardHeader>
@@ -321,6 +415,7 @@ export default function SettingsPage() {
         </Button>
       </main>
 
+      <div id="rebalancing" />
       <Dialog open={showLogout} onOpenChange={setShowLogout}>
         <DialogContent>
           <DialogHeader>
@@ -340,5 +435,176 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+const ASSET_CLASSES = ['domestic_equity', 'foreign_equity', 'bond', 'commodity', 'crypto', 'cash_equiv'] as const;
+const BAR_COLORS: Record<string, string> = {
+  domestic_equity: '#3b82f6',
+  foreign_equity: '#8b5cf6',
+  bond: '#06b6d4',
+  commodity: '#f59e0b',
+  crypto: '#10b981',
+  cash_equiv: '#6b7280',
+};
+
+function RebalancingTargetSection() {
+  const [targets, setTargets] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [preset, setPreset] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/rebalancing');
+        const data = await res.json();
+        if (data.targets?.length > 0) {
+          const map: Record<string, number> = {};
+          for (const t of data.targets) map[t.asset_class] = t.target_ratio;
+          setTargets(map);
+        }
+      } catch (err) {
+        console.error('리밸런싱 목표 조회 실패:', err);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const total = Object.values(targets).reduce((s, v) => s + v, 0);
+  const isValid = Math.abs(total - 100) < 0.1;
+
+  function applyPreset(key: string) {
+    const p = PRESETS[key];
+    if (!p) return;
+    const map: Record<string, number> = {};
+    for (const t of p) map[t.asset_class] = t.target_ratio;
+    setTargets(map);
+    setPreset(key);
+  }
+
+  function setRatio(cls: string, value: number) {
+    setTargets(prev => ({ ...prev, [cls]: Math.max(0, Math.min(100, value)) }));
+    setPreset('custom');
+  }
+
+  async function handleSave() {
+    if (!isValid) {
+      toast(`합계가 ${total.toFixed(1)}%입니다. 100%로 맞춰주세요.`, 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const targetArray = ASSET_CLASSES.map(cls => ({
+        asset_class: cls,
+        target_ratio: targets[cls] ?? 0,
+      }));
+      const res = await fetch('/api/rebalancing', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets: targetArray }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast(data.error || '저장 실패', 'error');
+      } else {
+        toast('리밸런싱 목표가 저장되었습니다', 'success');
+      }
+    } catch {
+      toast('네트워크 오류', 'error');
+    }
+    setSaving(false);
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-sm">리밸런싱 목표</CardTitle></CardHeader>
+        <CardContent><Skeleton className="h-40 w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  const presetButtons = [
+    { key: 'conservative', label: '보수형' },
+    { key: 'balanced', label: '균형형' },
+    { key: 'aggressive', label: '공격형' },
+    { key: 'custom', label: '직접설정' },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">리밸런싱 목표</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* 프리셋 */}
+        <div className="flex gap-2">
+          {presetButtons.map(b => (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => b.key !== 'custom' ? applyPreset(b.key) : null}
+              className={`flex-1 px-2 py-2 text-xs rounded-lg border transition-colors ${
+                preset === b.key
+                  ? 'border-primary bg-primary/10 font-semibold'
+                  : 'border-border hover:bg-muted'
+              }`}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 슬라이더 */}
+        <div className="space-y-3">
+          {ASSET_CLASSES.map(cls => {
+            const value = targets[cls] ?? 0;
+            return (
+              <div key={cls}>
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span>{CLASS_LABELS[cls] ?? cls}</span>
+                  <span className="font-semibold tabular-nums">{value}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-muted h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${value}%`, backgroundColor: BAR_COLORS[cls] }}
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={value}
+                    onChange={(e) => setRatio(cls, Number(e.target.value))}
+                    className="w-14 text-xs text-right bg-transparent border border-border rounded px-1.5 py-1 tabular-nums"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 합계 */}
+        <div className="flex justify-between items-center pt-3 border-t border-border text-sm">
+          <span className="font-semibold">합계</span>
+          <span className={`font-semibold tabular-nums ${isValid ? 'text-emerald-500' : 'text-red-500'}`}>
+            {total.toFixed(0)}%
+          </span>
+        </div>
+
+        <Button
+          className="w-full"
+          onClick={handleSave}
+          disabled={saving || !isValid}
+        >
+          {saving ? '저장 중...' : '목표 저장'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

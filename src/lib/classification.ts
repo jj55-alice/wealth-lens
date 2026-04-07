@@ -31,9 +31,9 @@ const ETF_KEYWORDS: { keywords: string[]; class: AssetClass }[] = [
 
 // 비주식 자산의 기본 매핑
 const CATEGORY_CLASS_MAP: Partial<Record<AssetCategory, AssetClass>> = {
-  real_estate: 'alternative',
+  real_estate: 'real_estate',
   gold: 'commodity',
-  crypto: 'alternative',
+  crypto: 'crypto',
   cash: 'cash_equiv',
   pension: 'domestic_equity', // 기본값, 사용자 수정 가능
 };

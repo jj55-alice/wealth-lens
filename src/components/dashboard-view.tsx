@@ -17,6 +17,8 @@ import { LeaseAlerts } from '@/components/lease-alerts';
 import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
+import { GoalProjection } from '@/components/goal-projection';
+import { MonthlyChange } from '@/components/monthly-change';
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
@@ -34,10 +36,11 @@ interface Props {
   exchangeRate?: number | null;
   currentUserId?: string;
   members?: MemberInfo[];
+  monthlyGrowth?: number | null;
   onMutate?: () => Promise<void>;
 }
 
-export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], onMutate }: Props) {
+export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], monthlyGrowth, onMutate }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const { toast } = useToast();
@@ -80,6 +83,25 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
       setRefreshing(false);
     }
   }, [onMutate, toast]);
+
+  const hasRealEstate = assets.some(a => a.category === 'real_estate' && a.kb_complex_id);
+  const [refreshingKb, setRefreshingKb] = useState(false);
+
+  const handleRefreshKb = useCallback(async () => {
+    setRefreshingKb(true);
+    try {
+      const res = await fetch('/api/kb-refresh', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (onMutate) await onMutate();
+      toast(`부동산 시세 ${data.updated}건 갱신됨`, 'success');
+    } catch {
+      toast('부동산 시세 갱신 실패', 'error');
+    } finally {
+      setRefreshingKb(false);
+    }
+  }, [onMutate, toast]);
+
   const totalAssets = filteredAssets.reduce((sum, a) => sum + a.current_value, 0);
   const totalLiabilities = filteredLiabilities.reduce((sum, l) => sum + l.balance, 0);
   const netWorth = totalAssets - totalLiabilities;
@@ -109,6 +131,17 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             >
               {refreshing ? '갱신 중...' : '↻ 시세'}
             </Button>
+            {hasRealEstate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshKb}
+                disabled={refreshingKb}
+                className="text-xs px-2 sm:px-3 hidden sm:inline-flex"
+              >
+                {refreshingKb ? '갱신 중...' : '🏠 KB시세'}
+              </Button>
+            )}
             <Link
               href="/history"
               className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
@@ -122,10 +155,22 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               📈 주식
             </Link>
             <Link
+              href="/returns"
+              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
+            >
+              💰 수익률
+            </Link>
+            <Link
               href="/assets/new"
               className="rounded-lg bg-primary px-3 sm:px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               + 등록
+            </Link>
+            <Link
+              href="/rebalancing"
+              className="hidden sm:inline-flex rounded-lg border border-border px-3 py-2 text-xs hover:bg-muted/50 transition-colors"
+            >
+              리밸런싱
             </Link>
             <Link
               href="/settings"
@@ -141,13 +186,25 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             href="/history"
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
-            📊 히스토리
+            히스토리
           </Link>
           <Link
             href="/stocks"
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
-            📈 주식
+            주식
+          </Link>
+          <Link
+            href="/returns"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            수익률
+          </Link>
+          <Link
+            href="/rebalancing"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            리밸런싱
           </Link>
         </div>
       </header>
@@ -250,11 +307,29 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               </CardContent>
             </Card>
 
+            {/* Monthly Change */}
+            {ownerFilter === 'all' && (
+              <MonthlyChange
+                householdId={household.id}
+                currentNetWorth={netWorth}
+                assets={assets}
+              />
+            )}
+
             {/* Lease Alerts */}
             <LeaseAlerts assets={filteredAssets} />
 
             {/* Milestone Progress */}
             <MilestoneCheck netWorth={netWorth} />
+
+            {/* 목표 프로젝션 */}
+            {household.goal_net_worth && household.goal_net_worth > 0 && ownerFilter === 'all' && (
+              <GoalProjection
+                netWorth={netWorth}
+                goalNetWorth={household.goal_net_worth}
+                recentMonthlyGrowth={monthlyGrowth ?? null}
+              />
+            )}
 
             {isFilteredEmpty ? (
               <Card>
@@ -295,6 +370,19 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* 리밸런싱 진입점 */}
+                <Link href="/rebalancing">
+                  <Card className="hover:bg-muted/30 transition-colors cursor-pointer">
+                    <CardContent className="py-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">리밸런싱</p>
+                        <p className="text-xs text-muted-foreground">목표 배분과 현재 포트폴리오를 비교해보세요</p>
+                      </div>
+                      <span className="text-muted-foreground text-sm">&rarr;</span>
+                    </CardContent>
+                  </Card>
+                </Link>
 
                 {/* Top Assets */}
                 <Card>

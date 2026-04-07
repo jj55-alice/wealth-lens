@@ -121,7 +121,7 @@ export async function POST() {
           purchase_price: avgBuyPrice > 0 ? avgBuyPrice : null,
           brokerage: '업비트',
           price_source: 'upbit',
-          asset_class: 'alternative',
+          asset_class: 'crypto',
         });
     }
     synced++;
@@ -161,10 +161,39 @@ export async function POST() {
     }
   }
 
-  // 시세 갱신
+  // 매도 완료된 코인 정리 (quantity=0)
+  // API 응답에서 보유 중인 ticker 목록
+  const holdingTickers = new Set(holdings.map(h => h.currency));
+  const { data: allCryptoAssets } = await supabaseAdmin
+    .from('assets')
+    .select('id, ticker, quantity')
+    .eq('household_id', householdId)
+    .eq('category', 'crypto')
+    .eq('brokerage', '업비트');
+
+  if (allCryptoAssets) {
+    for (const asset of allCryptoAssets) {
+      // quantity가 0이거나, API에서 보유 중이 아닌 경우에만 제거 (안전: quantity=0만)
+      if (asset.quantity !== null && Number(asset.quantity) === 0) {
+        await supabaseAdmin.from('assets').delete().eq('id', asset.id);
+      }
+    }
+  }
+
+  // 시세 갱신 — 동기화한 코인의 시세를 price_cache에 저장
   try {
-    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL ? '' : 'http://localhost:3000'}/api/prices`, { method: 'POST' });
-  } catch { /* ignore */ }
+    const { fetchPricesBatch } = await import('@/lib/prices');
+    const priceItems = holdings.map(h => ({ ticker: h.currency, source: 'upbit' as const }));
+    const prices = await fetchPricesBatch(priceItems);
+    for (const [ticker, result] of prices) {
+      await supabaseAdmin.from('price_cache').upsert(
+        { ticker, price: result.price, currency: result.currency, source: result.source, fetched_at: new Date().toISOString() },
+        { onConflict: 'ticker' },
+      );
+    }
+  } catch (err) {
+    console.error('Upbit 시세 갱신 실패:', err);
+  }
 
   return NextResponse.json({ synced, holdings: holdings.length });
 }

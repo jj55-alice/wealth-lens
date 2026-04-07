@@ -57,7 +57,9 @@ export default function HistoryPage() {
         const res = await fetch('/api/snapshot');
         const data = await res.json();
         if (Array.isArray(data)) setSnapshots(data);
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('스냅샷 조회 실패:', err);
+      }
       setLoading(false);
     }
     load();
@@ -71,7 +73,9 @@ export default function HistoryPage() {
       const res = await fetch('/api/snapshot');
       const data = await res.json();
       if (Array.isArray(data)) setSnapshots(data);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('스냅샷 생성 실패:', err);
+    }
     setSnapshotting(false);
   }
 
