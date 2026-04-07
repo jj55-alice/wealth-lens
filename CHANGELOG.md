@@ -2,6 +2,30 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.4.0] - 2026-04-07
+
+### Added — 보유 종목 AI 브리핑 (Phase 4 MVP, B-lite)
+매일 06:00 KST에 보유 주식·코인 관련 뉴스를 가져와서 Anthropic Claude가 사용자 포트폴리오 컨텍스트(매수가, 비중, 수익률)와 함께 분석한 인사이트 카드를 대시보드 상단에 표시합니다. 토스/네이버 같은 일반 증권 앱과 달리 본인 보유 종목에만 집중한 개인화된 신호.
+
+- **DB**: `briefing_cards` 테이블 + 측정 인프라 컬럼 (`status`, `input_tokens`, `output_tokens`, `cost_usd`, `error_message`). RLS는 가구 멤버 SELECT/UPDATE만, INSERT는 service role(cron) 전용.
+- **lib/news**: 네이버 종목 뉴스 + Yahoo Finance RSS fetch. 24시간 필터, 부분 실패 허용 (한 종목 fetch 실패해도 전체 진행).
+- **lib/briefing**: Anthropic SDK 직접 호출. 한국어 출력, JSON 형식 강제. **액션 phrase 자동 필터**: "추가 매수", "매도 권장", "팔아라" 등 차단. 정상 단어("매수가", "매도세")는 통과. 카드 5장 cap.
+- **API**:
+  - `POST /api/briefing/generate` — cron 호출 (CRON_SECRET 검증). 가구별 보유 종목 → 뉴스 → LLM → upsert.
+  - `GET /api/briefing/today` — 본인 가구 가장 최근 카드. stale 판정 포함.
+  - `POST /api/briefing/feedback` — 카드별 👍/👎 (1/-1/null). 본인 가구 검증.
+- **Cron**: `vercel.json`에 매일 21:00 UTC (=06:00 KST 다음날) 등록.
+- **UI**: `BriefingCards` 컴포넌트 — 신호별 색상(amber 주의 / emerald 기회 / muted 참고), 피드백 버튼, 원본 뉴스 링크, footnote disclaimer, 실패 배너, stale 표시. 대시보드 Net Worth 카드 직후 노출 (ownerFilter='all'일 때만).
+- **Tests**: 9 evals — JSON 파싱, 마크다운 펜스, 액션 phrase 필터, 정상 단어 통과, signal 검증, 5장 cap, Yahoo RSS 파싱.
+
+### Scope (CEO 리뷰 후 조정)
+- **포함**: 일일 카드 + 측정 인프라 + 피드백 버튼 + cron 실패 배너 + 액션 phrase 금지 + evals
+- **NOT in scope (1주 dogfood 후 결정)**: 종목 상세 모달, on-demand AI 분석, 챗봇, DART 공시, 이메일 알림
+
+### 환경변수 (배포 필수)
+- `ANTHROPIC_API_KEY` — Claude API 키. Vercel + 로컬 .env 양쪽 필요.
+- `CRON_SECRET` (옵션) — Vercel cron 인증. 미설정 시 dev mode에서만 호출 가능.
+
 ## [0.1.3.9] - 2026-04-07
 
 ### Fixed
