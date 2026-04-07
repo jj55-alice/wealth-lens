@@ -1,30 +1,46 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { getSupabaseUrl, getServiceRoleKey } from '@/lib/env';
 
-// GET: 가구 내 계좌 목록
-// ?owner=<user_id> → 그 사용자의 계좌만
-// ?owner=all → 가구 전체 (owner 필드도 함께 반환)
-// 기본값: 본인 계좌
-export async function GET(request: Request) {
-  const supabase = await createClient();
+// admin client는 RLS 우회. 인증은 server client로 검증, 데이터 query는 admin이 담당.
+function getAdmin() {
+  return createAdminClient(getSupabaseUrl(), getServiceRoleKey());
+}
+
+async function getAuthedUserAndHousehold() {
+  const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
+  if (!user) return { error: NextResponse.json({ error: '인증 필요' }, { status: 401 }) };
 
-  const { data: membership } = await supabase
+  const admin = getAdmin();
+  const { data: membership } = await admin
     .from('household_members')
     .select('household_id')
     .eq('user_id', user.id)
     .maybeSingle();
-  if (!membership) return NextResponse.json({ error: '가구 없음' }, { status: 404 });
+  if (!membership) return { error: NextResponse.json({ error: '가구 없음' }, { status: 404 }) };
+
+  return { user, householdId: membership.household_id, admin };
+}
+
+// GET: 가구 내 계좌 목록
+// ?owner=<user_id> → 그 사용자의 계좌만
+// ?owner=all → 가구 전체 (owner 필드 포함)
+// 기본값: 본인 계좌
+export async function GET(request: Request) {
+  const ctx = await getAuthedUserAndHousehold();
+  if ('error' in ctx) return ctx.error;
+  const { user, householdId, admin } = ctx;
 
   const url = new URL(request.url);
   const ownerParam = url.searchParams.get('owner');
   const ownerFilter = ownerParam ?? user.id;
 
-  let query = supabase
+  let query = admin
     .from('household_accounts')
     .select('id, brokerage, alias, user_id')
-    .eq('household_id', membership.household_id)
+    .eq('household_id', householdId)
     .order('brokerage')
     .order('alias');
 
@@ -32,23 +48,20 @@ export async function GET(request: Request) {
     query = query.eq('user_id', ownerFilter);
   }
 
-  const { data: accounts } = await query;
+  const { data: accounts, error } = await query;
+  if (error) {
+    return NextResponse.json({ error: error.message, accounts: [] }, { status: 500 });
+  }
+
   return NextResponse.json({ accounts: accounts ?? [] });
 }
 
 // POST: 새 계좌 추가
 // body: { brokerage, alias, user_id? } — user_id 미지정 시 본인
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
-
-  const { data: membership } = await supabase
-    .from('household_members')
-    .select('household_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!membership) return NextResponse.json({ error: '가구 없음' }, { status: 404 });
+  const ctx = await getAuthedUserAndHousehold();
+  if ('error' in ctx) return ctx.error;
+  const { user, householdId, admin } = ctx;
 
   const body = await request.json();
   const brokerage = (body.brokerage ?? '').toString().trim();
@@ -62,21 +75,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '50자 이내로 입력해주세요' }, { status: 400 });
   }
 
-  // user_id가 같은 가구의 멤버인지 검증
-  const { data: targetMember } = await supabase
+  // user_id가 같은 가구의 멤버인지 검증 (security)
+  const { data: targetMember } = await admin
     .from('household_members')
     .select('user_id')
-    .eq('household_id', membership.household_id)
+    .eq('household_id', householdId)
     .eq('user_id', targetUserId)
     .maybeSingle();
   if (!targetMember) {
     return NextResponse.json({ error: '해당 사용자는 같은 가구 멤버가 아닙니다' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from('household_accounts')
     .insert({
-      household_id: membership.household_id,
+      household_id: householdId,
       user_id: targetUserId,
       brokerage,
       alias,
@@ -94,17 +107,27 @@ export async function POST(request: Request) {
   return NextResponse.json({ account: data });
 }
 
-// DELETE: ?id=xxx
+// DELETE: ?id=xxx — 본인 가구의 계좌만 삭제 가능
 export async function DELETE(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: '인증 필요' }, { status: 401 });
+  const ctx = await getAuthedUserAndHousehold();
+  if ('error' in ctx) return ctx.error;
+  const { householdId, admin } = ctx;
 
   const url = new URL(request.url);
   const id = url.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id 필요' }, { status: 400 });
 
-  const { error } = await supabase.from('household_accounts').delete().eq('id', id);
+  // 같은 가구의 계좌인지 확인 (security: 다른 가구 계좌 삭제 방지)
+  const { data: account } = await admin
+    .from('household_accounts')
+    .select('household_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (!account || account.household_id !== householdId) {
+    return NextResponse.json({ error: '권한 없음' }, { status: 403 });
+  }
+
+  const { error } = await admin.from('household_accounts').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

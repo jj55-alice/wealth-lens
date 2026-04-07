@@ -2,6 +2,11 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.3.8] - 2026-04-07
+
+### Fixed
+- **계좌가 어디에서도 표시되지 않던 문제**: `/api/accounts`가 server-side Supabase client + RLS에 의존했는데, 서버 측에서 사용자 세션이 제대로 전달되지 않거나 RLS 정책 평가에 문제가 있어서 빈 응답이 나가던 것으로 추정. `/api/invite`, `/api/prices` 등 다른 API와 동일하게 **service role admin client**로 변경. 인증은 server client로 검증하고, 데이터 query는 admin client가 담당. household_id 기반 명시적 필터로 다른 가구 데이터 노출 방지 (`src/app/api/accounts/route.ts`).
+
 ## [0.1.3.7] - 2026-04-07
 
 ### Fixed
