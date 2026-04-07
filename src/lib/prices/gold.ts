@@ -1,9 +1,35 @@
 import type { PriceAdapter, PriceResult } from './types';
 
-// 금 시세: 네이버 금융 금 시세 (그램당 KRW)
+// 금 시세: 네이버 금융 금 시세 (그램당 KRW, 매도가 기준)
 // https://finance.naver.com/marketindex/goldDetail.naver
+//
+// 평가 기준: "계좌 (고객출금 시)" 가격 = 사용자가 매도 시 실제 받는 금액.
+// 자산 평가는 보수적으로 매도가를 사용한다 (매수가는 거래 비용이 포함되어 있음).
 
-const FALLBACK_GOLD_PRICE_PER_GRAM = 229000; // 2026년 4월 기준
+const FALLBACK_GOLD_PRICE_PER_GRAM = 222000; // 2026년 4월 기준 (g당 매도가)
+
+/**
+ * 네이버 금 시세 페이지 HTML에서 그램당 매도가를 추출한다.
+ * export되어 있어 테스트에서 직접 호출 가능.
+ */
+export function parseNaverGoldPrice(html: string): number | null {
+  // 1순위: "계좌 (고객출금 시)" 라벨 다음의 숫자 (매도가 = 자산 평가 기준)
+  // HTML 태그가 사이에 끼어있을 수 있으니 너그러운 정규식 사용
+  const sellMatch = html.match(/고객출금[^0-9]{0,200}([0-9]{3},[0-9]{3})(?:\.[0-9]+)?/);
+  if (sellMatch) {
+    const price = Number(sellMatch[1].replace(/,/g, ''));
+    if (price >= 100000 && price <= 500000) return price;
+  }
+
+  // 2순위: "계좌 (고객입금 시)" — 매수가
+  const buyMatch = html.match(/고객입금[^0-9]{0,200}([0-9]{3},[0-9]{3})(?:\.[0-9]+)?/);
+  if (buyMatch) {
+    const price = Number(buyMatch[1].replace(/,/g, ''));
+    if (price >= 100000 && price <= 500000) return price;
+  }
+
+  return null;
+}
 
 async function fetchGoldPriceFromNaver(): Promise<number> {
   try {
@@ -17,19 +43,8 @@ async function fetchGoldPriceFromNaver(): Promise<number> {
     const decoder = new TextDecoder('euc-kr');
     const html = decoder.decode(buffer);
 
-    // 네이버 금 시세 페이지에서 가격 추출 (첫 번째 큰 숫자가 매매기준율)
-    const matches = html.match(/([0-9]{2,3},[0-9]{3})/g);
-    if (matches && matches.length > 0) {
-      // 첫 번째 매칭이 보통 국제 금시세 (USD/g 변환), 마지막 근처가 국내 금시세
-      // 229,061 같은 패턴이 그램당 원화 시세
-      for (const m of matches) {
-        const price = Number(m.replace(',', ''));
-        // 그램당 금 시세는 대략 150,000~400,000원 범위
-        if (price >= 150000 && price <= 400000) {
-          return price;
-        }
-      }
-    }
+    const price = parseNaverGoldPrice(html);
+    if (price !== null) return price;
 
     throw new Error('Could not parse gold price');
   } catch {
