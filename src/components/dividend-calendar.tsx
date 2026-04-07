@@ -92,6 +92,11 @@ export function DividendCalendar({ stocks, dividends }: Props) {
                     배당락 {d.exDate}
                   </p>
                 )}
+                {d.paymentDate && (
+                  <p className="text-xs text-muted-foreground">
+                    지급일 {d.paymentDate}
+                  </p>
+                )}
               </div>
             </div>
           ))}

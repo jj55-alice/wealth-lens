@@ -12,6 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -362,6 +369,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* 주식 계좌 관리 */}
+        <AccountManagementSection />
+
         {/* 리밸런싱 목표 */}
         <RebalancingTargetSection />
 
@@ -604,6 +614,145 @@ function RebalancingTargetSection() {
         >
           {saving ? '저장 중...' : '목표 저장'}
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+const ACCOUNT_BROKERAGES = [
+  '키움증권', '현대차증권', '신한은행', '하나은행', '한국투자증권',
+  '삼성증권', '미래에셋증권', 'NH투자증권', '기타',
+];
+
+interface UserAccount {
+  id: string;
+  brokerage: string;
+  alias: string;
+}
+
+function AccountManagementSection() {
+  const [accounts, setAccounts] = useState<UserAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [brokerage, setBrokerage] = useState('');
+  const [alias, setAlias] = useState('');
+  const [adding, setAdding] = useState(false);
+  const { toast } = useToast();
+
+  async function load() {
+    try {
+      const res = await fetch('/api/accounts');
+      const data = await res.json();
+      setAccounts(data.accounts ?? []);
+    } catch {
+      toast('계좌 목록을 불러오지 못했습니다', 'error');
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleAdd() {
+    if (!brokerage || !alias.trim()) {
+      toast('금융사와 별칭을 모두 입력해주세요', 'error');
+      return;
+    }
+    setAdding(true);
+    try {
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brokerage, alias: alias.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || '추가 실패', 'error');
+      } else {
+        setAccounts([...accounts, data.account]);
+        setBrokerage('');
+        setAlias('');
+        toast('계좌가 추가되었습니다', 'success');
+      }
+    } catch {
+      toast('네트워크 오류', 'error');
+    }
+    setAdding(false);
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await fetch(`/api/accounts?id=${id}`, { method: 'DELETE' });
+      setAccounts(accounts.filter(a => a.id !== id));
+    } catch {
+      toast('삭제 실패', 'error');
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">주식 계좌 관리</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          금융사별 계좌를 별칭과 함께 등록해두면, 자산 등록 시 빠르게 선택할 수 있어요.
+        </p>
+
+        {loading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : accounts.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">등록된 계좌가 없습니다</p>
+        ) : (
+          <div className="space-y-1.5">
+            {accounts.map((acc) => (
+              <div
+                key={acc.id}
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+              >
+                <div className="text-sm">
+                  <span className="font-medium">{acc.brokerage}</span>
+                  <span className="text-muted-foreground"> · {acc.alias}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(acc.id)}
+                  className="text-xs text-red-500 hover:text-red-600 px-2 py-1"
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={brokerage} onValueChange={(v) => v && setBrokerage(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="금융사" />
+              </SelectTrigger>
+              <SelectContent>
+                {ACCOUNT_BROKERAGES.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="별칭 (예: 메인, ISA)"
+              value={alias}
+              onChange={(e) => setAlias(e.target.value)}
+              maxLength={50}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleAdd}
+            disabled={adding || !brokerage || !alias.trim()}
+          >
+            {adding ? '추가 중...' : '+ 계좌 추가'}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

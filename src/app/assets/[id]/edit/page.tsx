@@ -58,6 +58,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [leaseExpiry, setLeaseExpiry] = useState('');
   const [kbComplexId, setKbComplexId] = useState<string | null>(null);
   const [showKbSearch, setShowKbSearch] = useState(false);
+  const [accountAlias, setAccountAlias] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -88,6 +89,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
       setAddress(data.address ?? '');
       setLeaseExpiry(data.lease_expiry ?? '');
       setKbComplexId(data.kb_complex_id ?? null);
+      setAccountAlias(data.account_alias ?? '');
       setOwnerUserId(data.owner_user_id);
       setOwnership((data.ownership as 'personal' | 'shared') ?? 'personal');
 
@@ -134,6 +136,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
           updates.quantity = Number(quantity) || 0;
           updates.purchase_price = purchasePrice ? Number(purchasePrice) : null;
           updates.brokerage = brokerage || null;
+          updates.account_alias = accountAlias || null;
           break;
         case 'pension':
         case 'cash':
@@ -142,6 +145,7 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
           break;
         case 'gold':
           updates.quantity = Number(quantity) || 0;
+          updates.purchase_price = purchasePrice ? Number(purchasePrice) : null;
           updates.brokerage = brokerage || null;
           break;
         case 'crypto':
@@ -376,6 +380,15 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
                 </Select>
               </div>
               <div className="space-y-1.5">
+                <Label>계좌 별칭 (선택)</Label>
+                <Input
+                  placeholder="예: 메인, ISA"
+                  value={accountAlias}
+                  onChange={(e) => setAccountAlias(e.target.value)}
+                  maxLength={50}
+                />
+              </div>
+              <div className="space-y-1.5">
                 <Label>매수 단가 (원)</Label>
                 <Input
                   type="number"
@@ -439,6 +452,20 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
                   min={0}
                   step="any"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>평균 매입가 (원/g)</Label>
+                <Input
+                  type="number"
+                  placeholder="예: 95000"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value)}
+                  min={0}
+                  step="any"
+                />
+                <p className="text-xs text-muted-foreground">
+                  현재 금 시세와 비교하여 수익률을 계산합니다
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>보관처</Label>

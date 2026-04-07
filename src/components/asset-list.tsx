@@ -72,12 +72,120 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
     grouped.set(a.category, list);
   }
 
+  // 주식 카테고리는 금융사 + 계좌별칭으로 sub-group, 그룹/항목 모두 가나다순 정렬
+  function groupStocksByAccount(items: AssetWithPrice[]) {
+    const subMap = new Map<string, AssetWithPrice[]>();
+    for (const a of items) {
+      const broker = a.brokerage ?? '미지정';
+      const alias = a.account_alias ?? '';
+      const key = alias ? `${broker} · ${alias}` : broker;
+      const list = subMap.get(key) ?? [];
+      list.push(a);
+      subMap.set(key, list);
+    }
+    return Array.from(subMap.entries())
+      .map(([key, items]) => ({
+        key,
+        items: items.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+        total: items.reduce((s, a) => s + a.current_value, 0),
+      }))
+      .sort((a, b) => a.key.localeCompare(b.key, 'ko'));
+  }
+
+  function renderRow(asset: AssetWithPrice) {
+    return (
+      <div
+        key={asset.id}
+        className="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div>
+            <p className="text-sm font-medium">{asset.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {asset.ownership === 'shared' && (
+                <Badge variant="outline" className="text-[10px] px-1">공동</Badge>
+              )}
+              {asset.brokerage && asset.category !== 'stock' && (
+                <span className="text-xs text-muted-foreground">{asset.brokerage}</span>
+              )}
+              {asset.quantity && asset.current_price && (
+                <span className="text-xs text-muted-foreground">
+                  {asset.quantity}주 x{' '}
+                  {asset.price_source === 'yahoo_finance' && exchangeRate
+                    ? `$${(asset.current_price / exchangeRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : asset.current_price.toLocaleString()}
+                </span>
+              )}
+              {asset.is_stale && (
+                <Badge variant="outline" className="text-[10px] px-1">지연</Badge>
+              )}
+              {asset.kb_estimated_value && !asset.manual_value && (
+                <Badge variant="outline" className="text-[10px] px-1 text-blue-500">KB 추정가</Badge>
+              )}
+              {asset.lease_expiry && (
+                <Badge variant="outline" className="text-[10px] px-1">만기 {asset.lease_expiry}</Badge>
+              )}
+              {asset.category === 'real_estate' && asset.updated_at && (
+                <span className="text-[10px] text-muted-foreground">
+                  {(() => {
+                    const days = Math.floor((Date.now() - new Date(asset.updated_at).getTime()) / (1000 * 60 * 60 * 24));
+                    if (days === 0) return '오늘 업데이트';
+                    if (days <= 7) return `${days}일 전 업데이트`;
+                    if (days <= 30) return `${Math.floor(days / 7)}주 전 업데이트`;
+                    return `${Math.floor(days / 30)}개월 전`;
+                  })()}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex sm:opacity-0 sm:group-hover:opacity-100 transition-opacity items-center gap-1">
+            <Link href={`/assets/${asset.id}/edit`}>
+              <Button variant="ghost" size="sm" className="h-7 text-xs px-2">수정</Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs px-2 text-red-500 hover:text-red-600"
+              onClick={() => setDeleteTarget(asset)}
+            >
+              삭제
+            </Button>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium tabular-nums">
+              {asset.price_source === 'yahoo_finance' && exchangeRate
+                ? formatUsdKrw(asset.current_value, exchangeRate)
+                : formatKRW(asset.current_value)}
+            </p>
+            {(() => {
+              const pp = asset.purchase_price;
+              if (!pp || pp <= 0) return null;
+              const currentVal = asset.current_value;
+              const returnRate = ((currentVal - pp * (asset.quantity ?? 1)) / (pp * (asset.quantity ?? 1))) * 100;
+              const realReturn = asset.category === 'real_estate' && asset.manual_value
+                ? ((Number(asset.manual_value) - pp) / pp) * 100
+                : returnRate;
+              return (
+                <p className={`text-[10px] ${realReturn >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {realReturn >= 0 ? '+' : ''}{realReturn.toFixed(1)}%
+                </p>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-4">
         {CATEGORY_ORDER.filter((cat) => grouped.has(cat)).map((cat) => {
           const items = grouped.get(cat)!;
           const categoryTotal = items.reduce((s, a) => s + a.current_value, 0);
+          const stockGroups = cat === 'stock' ? groupStocksByAccount(items) : null;
 
           return (
             <div key={cat}>
@@ -89,107 +197,29 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
                   {formatKRW(categoryTotal)}
                 </span>
               </div>
-              <div className="space-y-1">
-                {items.map((asset) => (
-                  <div
-                    key={asset.id}
-                    className="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <p className="text-sm font-medium">{asset.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {asset.ownership === 'shared' && (
-                            <Badge variant="outline" className="text-[10px] px-1">
-                              공동
-                            </Badge>
-                          )}
-                          {asset.brokerage && (
-                            <span className="text-xs text-muted-foreground">
-                              {asset.brokerage}
-                            </span>
-                          )}
-                          {asset.quantity && asset.current_price && (
-                            <span className="text-xs text-muted-foreground">
-                              {asset.quantity}주 x{' '}
-                              {asset.price_source === 'yahoo_finance' && exchangeRate
-                                ? `$${(asset.current_price / exchangeRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                : asset.current_price.toLocaleString()
-                              }
-                            </span>
-                          )}
-                          {asset.is_stale && (
-                            <Badge variant="outline" className="text-[10px] px-1">
-                              지연
-                            </Badge>
-                          )}
-                          {asset.kb_estimated_value && !asset.manual_value && (
-                            <Badge variant="outline" className="text-[10px] px-1 text-blue-500">
-                              KB 추정가
-                            </Badge>
-                          )}
-                          {asset.lease_expiry && (
-                            <Badge variant="outline" className="text-[10px] px-1">
-                              만기 {asset.lease_expiry}
-                            </Badge>
-                          )}
-                          {asset.category === 'real_estate' && asset.updated_at && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {(() => {
-                                const days = Math.floor((Date.now() - new Date(asset.updated_at).getTime()) / (1000 * 60 * 60 * 24));
-                                if (days === 0) return '오늘 업데이트';
-                                if (days <= 7) return `${days}일 전 업데이트`;
-                                if (days <= 30) return `${Math.floor(days / 7)}주 전 업데이트`;
-                                return `${Math.floor(days / 30)}개월 전`;
-                              })()}
-                            </span>
-                          )}
-                        </div>
+              {stockGroups ? (
+                <div className="space-y-3">
+                  {stockGroups.map((group) => (
+                    <div key={group.key}>
+                      <div className="flex items-center justify-between mb-1 px-3">
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                          {group.key}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {formatKRW(group.total)}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {group.items.map(renderRow)}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex sm:opacity-0 sm:group-hover:opacity-100 transition-opacity items-center gap-1">
-                        <Link href={`/assets/${asset.id}/edit`}>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2">
-                            수정
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs px-2 text-red-500 hover:text-red-600"
-                          onClick={() => setDeleteTarget(asset)}
-                        >
-                          삭제
-                        </Button>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium tabular-nums">
-                          {asset.price_source === 'yahoo_finance' && exchangeRate
-                            ? formatUsdKrw(asset.current_value, exchangeRate)
-                            : formatKRW(asset.current_value)
-                          }
-                        </p>
-                        {(() => {
-                          const pp = asset.purchase_price;
-                          if (!pp || pp <= 0) return null;
-                          const currentVal = asset.current_value;
-                          const returnRate = ((currentVal - pp * (asset.quantity ?? 1)) / (pp * (asset.quantity ?? 1))) * 100;
-                          // 부동산은 quantity=null이므로 manual_value vs purchase_price 직접 비교
-                          const realReturn = asset.category === 'real_estate' && asset.manual_value
-                            ? ((Number(asset.manual_value) - pp) / pp) * 100
-                            : returnRate;
-                          return (
-                            <p className={`text-[10px] ${realReturn >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {realReturn >= 0 ? '+' : ''}{realReturn.toFixed(1)}%
-                            </p>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {items.map(renderRow)}
+                </div>
+              )}
             </div>
           );
         })}

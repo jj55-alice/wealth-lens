@@ -109,6 +109,16 @@ export default function NewAssetPage() {
   const [purchaseCurrency, setPurchaseCurrency] = useState<'KRW' | 'USD'>('KRW');
   const [quantity, setQuantity] = useState('');
   const [accountType, setAccountType] = useState('other');
+  const [accountAlias, setAccountAlias] = useState('');
+
+  // 사용자 등록 계좌 (퀵픽)
+  const [userAccounts, setUserAccounts] = useState<{ id: string; brokerage: string; alias: string }[]>([]);
+  useEffect(() => {
+    fetch('/api/accounts')
+      .then(r => r.json())
+      .then(d => setUserAccounts(d.accounts ?? []))
+      .catch(() => {});
+  }, []);
 
   // Real estate fields
   const [realEstateType, setRealEstateType] = useState('owned');
@@ -203,6 +213,7 @@ export default function NewAssetPage() {
             }
             assetData.subcategory = accountType;
             assetData.brokerage = brokerage || null;
+            assetData.account_alias = accountAlias || null;
             assetData.price_source = stockPriceSource;
             assetData.asset_class = classifyAsset(stockName || ticker, 'stock', ticker);
             break;
@@ -635,6 +646,36 @@ export default function NewAssetPage() {
           {/* 주식 */}
           {entryType === 'stock' && (
             <>
+              {userAccounts.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>내 계좌 (빠른 선택)</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {userAccounts.map((acc) => {
+                      const isActive = brokerage === acc.brokerage && accountAlias === acc.alias;
+                      return (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => {
+                            setBrokerage(acc.brokerage);
+                            setAccountAlias(acc.alias);
+                          }}
+                          className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                            isActive
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-muted/30 hover:bg-muted'
+                          }`}
+                        >
+                          {acc.brokerage} · {acc.alias}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    설정 → 주식 계좌 관리에서 등록할 수 있어요
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label>증권사</Label>
                 <Select value={brokerage} onValueChange={(v) => v && setBrokerage(v)}>
@@ -645,6 +686,15 @@ export default function NewAssetPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>계좌 별칭 (선택)</Label>
+                <Input
+                  placeholder="예: 메인, ISA"
+                  value={accountAlias}
+                  onChange={(e) => setAccountAlias(e.target.value)}
+                  maxLength={50}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>계좌 유형</Label>

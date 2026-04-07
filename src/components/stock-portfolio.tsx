@@ -16,22 +16,29 @@ interface Props {
 }
 
 export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
-  // 총 투자금 계산
-  const totalInvested = stocks.reduce((sum, s) => {
+  // 종목 코드(ticker)가 같은 자산은 합친다 (다른 계좌 분산 보유 케이스)
+  // - quantity 합산
+  // - current_value 합산
+  // - purchase_price는 가중평균 (Σ pp×qty / Σ qty)
+  // - brokerage는 콤마로 join
+  const mergedStocks = mergeByTicker(stocks);
+
+  // 총 투자금 계산 (병합 후 기준)
+  const totalInvested = mergedStocks.reduce((sum, s) => {
     const pp = s.purchase_price;
     if (pp && s.quantity) return sum + pp * Number(s.quantity);
     return sum;
   }, 0);
 
   // 총 평가액
-  const totalCurrentValue = stocks.reduce((sum, s) => sum + s.current_value, 0);
+  const totalCurrentValue = mergedStocks.reduce((sum, s) => sum + s.current_value, 0);
 
   // 총 수익
   const totalProfit = totalInvested > 0 ? totalCurrentValue - totalInvested : 0;
   const totalReturnRate = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
 
   // 종목별 수익률
-  const stockReturns = stocks.map((s) => {
+  const stockReturns = mergedStocks.map((s) => {
     const pp = s.purchase_price;
     const currentPrice = s.current_price ?? 0;
     const returnRate = pp && pp > 0 ? ((currentPrice - pp) / pp) * 100 : null;
@@ -80,7 +87,7 @@ export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
           <CardTitle className="text-sm">포트폴리오 구성</CardTitle>
         </CardHeader>
         <CardContent>
-          <StockTreemap stocks={stocks} />
+          <StockTreemap stocks={mergedStocks} />
         </CardContent>
       </Card>
 
@@ -93,11 +100,61 @@ export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
           <CardTitle className="text-sm">배당금 정보</CardTitle>
         </CardHeader>
         <CardContent>
-          <DividendCalendar stocks={stocks} dividends={dividends} />
+          <DividendCalendar stocks={mergedStocks} dividends={dividends} />
         </CardContent>
       </Card>
     </div>
   );
+}
+
+/**
+ * 같은 ticker의 주식 자산을 하나로 병합한다.
+ * - quantity, current_value 합산
+ * - purchase_price는 가중평균
+ * - brokerage는 고유값 콤마 join
+ * ticker가 없는 자산은 그대로 유지.
+ */
+function mergeByTicker(stocks: AssetWithPrice[]): AssetWithPrice[] {
+  const map = new Map<string, AssetWithPrice>();
+  const result: AssetWithPrice[] = [];
+
+  for (const s of stocks) {
+    if (!s.ticker) {
+      result.push(s);
+      continue;
+    }
+    const existing = map.get(s.ticker);
+    if (!existing) {
+      map.set(s.ticker, { ...s });
+      continue;
+    }
+
+    const qA = Number(existing.quantity) || 0;
+    const qB = Number(s.quantity) || 0;
+    const ppA = existing.purchase_price ?? 0;
+    const ppB = s.purchase_price ?? 0;
+    const totalQty = qA + qB;
+    const weightedPp = totalQty > 0
+      ? ((ppA * qA) + (ppB * qB)) / totalQty
+      : null;
+
+    const brokers = new Set<string>();
+    if (existing.brokerage) brokers.add(existing.brokerage);
+    if (s.brokerage) brokers.add(s.brokerage);
+
+    map.set(s.ticker, {
+      ...existing,
+      quantity: totalQty || null,
+      current_value: existing.current_value + s.current_value,
+      purchase_price: weightedPp && weightedPp > 0 ? weightedPp : (existing.purchase_price ?? s.purchase_price),
+      brokerage: brokers.size > 0 ? Array.from(brokers).join(', ') : null,
+      // is_stale: 하나라도 stale이면 stale
+      is_stale: existing.is_stale || s.is_stale,
+    });
+  }
+
+  for (const merged of map.values()) result.push(merged);
+  return result;
 }
 
 type SortKey = 'name' | 'value' | 'return';

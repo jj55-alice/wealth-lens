@@ -79,6 +79,7 @@ export interface Asset {
   price_source: PriceSource;
   asset_class: AssetClass | null;
   brokerage: string | null;
+  account_alias: string | null; // 사용자 정의 계좌 별칭 (예: 메인, ISA)
   address: string | null;
   purchase_price: number | null; // cost basis per unit
   kb_complex_id: string | null; // KB real estate complex ID
