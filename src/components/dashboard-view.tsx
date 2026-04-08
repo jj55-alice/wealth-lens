@@ -14,7 +14,6 @@ import { AssetList } from '@/components/asset-list';
 import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';
 import { LeaseAlerts } from '@/components/lease-alerts';
-import { MilestoneCheck } from '@/components/milestone-check';
 import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
 import { GoalProjection } from '@/components/goal-projection';
@@ -326,9 +325,6 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
 
             {/* Lease Alerts */}
             <LeaseAlerts assets={filteredAssets} />
-
-            {/* Milestone Progress */}
-            <MilestoneCheck netWorth={netWorth} goalNetWorth={household.goal_net_worth} />
 
             {/* 목표 프로젝션 */}
             {household.goal_net_worth && household.goal_net_worth > 0 && ownerFilter === 'all' && (
