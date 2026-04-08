@@ -74,10 +74,14 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
   const handleRefreshPrices = useCallback(async () => {
     setRefreshing(true);
     try {
+      // 1. 업비트 보유 잔고 동기화 (키 미설정/실패해도 시세는 계속)
+      const syncRes = await fetch('/api/upbit-sync', { method: 'POST' });
+      const syncOk = syncRes.ok;
+      // 2. 시세 갱신
       const res = await fetch('/api/prices', { method: 'POST' });
       if (!res.ok) throw new Error();
       if (onMutate) await onMutate();
-      toast('시세가 갱신되었습니다', 'success');
+      toast(syncOk ? '업비트 잔고와 시세가 갱신되었습니다' : '시세가 갱신되었습니다', 'success');
     } catch {
       toast('시세 갱신에 실패했습니다', 'error');
     } finally {
