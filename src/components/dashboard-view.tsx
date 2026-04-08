@@ -328,7 +328,7 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             <LeaseAlerts assets={filteredAssets} />
 
             {/* Milestone Progress */}
-            <MilestoneCheck netWorth={netWorth} />
+            <MilestoneCheck netWorth={netWorth} goalNetWorth={household.goal_net_worth} />
 
             {/* 목표 프로젝션 */}
             {household.goal_net_worth && household.goal_net_worth > 0 && ownerFilter === 'all' && (

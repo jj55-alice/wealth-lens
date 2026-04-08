@@ -2,7 +2,7 @@
 
 import { formatKRW } from '@/lib/format';
 
-const MILESTONES = [
+const DEFAULT_MILESTONES = [
   1_0000_0000, // 1억
   3_0000_0000, // 3억
   5_0000_0000, // 5억
@@ -13,12 +13,19 @@ const MILESTONES = [
 
 interface Props {
   netWorth: number;
+  goalNetWorth?: number | null;
 }
 
-export function MilestoneCheck({ netWorth }: Props) {
+export function MilestoneCheck({ netWorth, goalNetWorth }: Props) {
+  // 사용자 목표가 있으면 그걸 우선 사용 (설정 페이지의 순자산 목표).
+  // 없으면 하드코딩된 단계 milestone으로 폴백.
+  const milestones = goalNetWorth && goalNetWorth > 0
+    ? DEFAULT_MILESTONES.filter((m) => m < goalNetWorth).concat(goalNetWorth)
+    : DEFAULT_MILESTONES;
+
   // Find the most recent milestone passed
-  const passed = MILESTONES.filter((m) => netWorth >= m);
-  const nextMilestone = MILESTONES.find((m) => netWorth < m);
+  const passed = milestones.filter((m) => netWorth >= m);
+  const nextMilestone = milestones.find((m) => netWorth < m);
 
   if (passed.length === 0 || !nextMilestone) return null;
 
