@@ -9,7 +9,7 @@ export async function getUserHousehold(supabase: SupabaseClient) {
 
   const { data: membership } = await supabase
     .from('household_members')
-    .select('household_id, role, households(id, name, created_at)')
+    .select('household_id, role, households(id, name, created_at, goal_net_worth, goal_annual_dividend)')
     .eq('user_id', user.id)
     .maybeSingle();
 
