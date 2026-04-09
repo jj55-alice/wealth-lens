@@ -63,6 +63,13 @@ export function convertUsdToKrw(priceResult: PriceResult, usdKrwRate: number): P
   return {
     ...priceResult,
     price: Math.round(priceResult.price * usdKrwRate),
+    // previousClose도 같은 레이트로 변환해야 당일 변동률 계산 시
+    // 통화 단위가 일치한다. 이걸 빼먹으면 (KRW price - USD prev) / USD prev
+    // = 약 1400배 × 14만% 같은 말도 안 되는 수치가 나옴.
+    previousClose:
+      priceResult.previousClose != null
+        ? Math.round(priceResult.previousClose * usdKrwRate)
+        : (priceResult.previousClose ?? null),
     currency: 'KRW',
   };
 }
