@@ -2,24 +2,51 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { formatKRW, formatChange, formatPercent } from '@/lib/format';
-import { AssetPieChart } from '@/components/asset-pie-chart';
-import { AllocationPieChart } from '@/components/allocation-pie-chart';
 import { AssetList } from '@/components/asset-list';
 import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';
 import { LeaseAlerts } from '@/components/lease-alerts';
-import { ChangeAttribution } from '@/components/change-attribution';
 import { HouseholdMembers } from '@/components/household-members';
-import { GoalProjection } from '@/components/goal-projection';
-import { BriefingCards } from '@/components/briefing-cards';
-import { MonthlyChange } from '@/components/monthly-change';
+
+// recharts 등 무거운 클라이언트 차트는 lazy load → 초기 JS 번들 축소
+const ChartFallback = () => <Skeleton className="h-64 w-full rounded-xl" />;
+const AssetPieChart = dynamic(
+  () => import('@/components/asset-pie-chart').then((m) => m.AssetPieChart),
+  { ssr: false, loading: ChartFallback },
+);
+const AllocationPieChart = dynamic(
+  () =>
+    import('@/components/allocation-pie-chart').then(
+      (m) => m.AllocationPieChart,
+    ),
+  { ssr: false, loading: ChartFallback },
+);
+const ChangeAttribution = dynamic(
+  () =>
+    import('@/components/change-attribution').then((m) => m.ChangeAttribution),
+  { ssr: false, loading: ChartFallback },
+);
+const GoalProjection = dynamic(
+  () => import('@/components/goal-projection').then((m) => m.GoalProjection),
+  { ssr: false, loading: ChartFallback },
+);
+const BriefingCards = dynamic(
+  () => import('@/components/briefing-cards').then((m) => m.BriefingCards),
+  { ssr: false, loading: ChartFallback },
+);
+const MonthlyChange = dynamic(
+  () => import('@/components/monthly-change').then((m) => m.MonthlyChange),
+  { ssr: false, loading: ChartFallback },
+);
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
