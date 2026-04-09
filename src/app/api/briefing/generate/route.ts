@@ -10,12 +10,22 @@ type Admin = SupabaseClient;
 
 // 두 가지 호출 경로:
 //   1) Vercel cron: Authorization: Bearer <CRON_SECRET> 헤더 → 모든 가구 루프
-//   2) 로그인한 사용자의 수동 재시도: 세션 인증 → 본인 가구만
+//      Vercel cron 은 GET 기본이라 GET 도 동일 로직으로 export.
+//   2) 로그인한 사용자의 수동 재시도: POST + 세션 인증 → 본인 가구만
 //
-// POST /api/briefing/generate
+// POST /api/briefing/generate — 사용자 수동 재시도
+// GET  /api/briefing/generate — Vercel cron (CRON_SECRET Bearer)
 //   Body: { household_id?: string }  // cron 모드에서만 특정 가구 지정 가능.
 //   사용자 모드에선 무시하고 본인 가구로 강제.
+export async function GET(request: Request) {
+  return handleRequest(request);
+}
+
 export async function POST(request: Request) {
+  return handleRequest(request);
+}
+
+async function handleRequest(request: Request) {
   const authHeader = request.headers.get('authorization') ?? '';
   const cronSecret = process.env.CRON_SECRET;
   const isDev = process.env.NODE_ENV !== 'production';

@@ -4,7 +4,16 @@ import { getSupabaseUrl, getServiceRoleKey, getCronSecret } from '@/lib/env';
 import { formatKRW } from '@/lib/format';
 import { NextResponse } from 'next/server';
 
+// Vercel cron 은 GET 기본이라 GET 도 동일 로직으로 export.
+export async function GET(request: Request) {
+  return handleRequest(request);
+}
+
 export async function POST(request: Request) {
+  return handleRequest(request);
+}
+
+async function handleRequest(request: Request) {
   const cronSecret = getCronSecret();
   const authHeader = request.headers.get('authorization');
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
