@@ -49,18 +49,25 @@ export default function StocksPage() {
 
       const stockAssets = rawStocks ?? [];
 
-      // Get cached prices
+      // Get cached prices (+ previous_close for daily change tracking)
       const tickers = stockAssets.filter((a) => a.ticker).map((a) => a.ticker as string);
-      const priceMap = new Map<string, { price: number; fetched_at: string }>();
+      const priceMap = new Map<
+        string,
+        { price: number; previous_close: number | null; fetched_at: string }
+      >();
 
       if (tickers.length > 0) {
         const { data: prices } = await supabase
           .from('price_cache')
-          .select('ticker, price, fetched_at')
+          .select('ticker, price, previous_close, fetched_at')
           .in('ticker', tickers);
         if (prices) {
           for (const p of prices) {
-            priceMap.set(p.ticker, { price: p.price, fetched_at: p.fetched_at });
+            priceMap.set(p.ticker, {
+              price: p.price,
+              previous_close: p.previous_close ?? null,
+              fetched_at: p.fetched_at,
+            });
           }
         }
       }
@@ -69,6 +76,7 @@ export default function StocksPage() {
         stockAssets.map((asset) => {
           const cached = asset.ticker ? priceMap.get(asset.ticker) : null;
           const currentPrice = cached?.price ?? null;
+          const previousClose = cached?.previous_close ?? null;
           let currentValue = 0;
           if (currentPrice && asset.quantity) {
             currentValue = currentPrice * Number(asset.quantity);
@@ -76,6 +84,11 @@ export default function StocksPage() {
           const isStale = cached
             ? Date.now() - new Date(cached.fetched_at).getTime() > 24 * 60 * 60 * 1000
             : false;
+
+          const dailyChangeRate =
+            currentPrice != null && previousClose != null && previousClose > 0
+              ? ((currentPrice - previousClose) / previousClose) * 100
+              : null;
 
           return {
             ...asset,
@@ -85,6 +98,8 @@ export default function StocksPage() {
             current_value: currentValue,
             price_updated_at: cached?.fetched_at ?? null,
             is_stale: isStale,
+            previous_close: previousClose,
+            daily_change_rate: dailyChangeRate,
           } as AssetWithPrice;
         })
       );

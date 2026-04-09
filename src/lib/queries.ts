@@ -48,16 +48,23 @@ export async function getHouseholdAssets(
     .filter((a) => a.ticker)
     .map((a) => a.ticker as string);
 
-  const priceMap = new Map<string, { price: number; fetched_at: string }>();
+  const priceMap = new Map<
+    string,
+    { price: number; previous_close: number | null; fetched_at: string }
+  >();
   if (tickers.length > 0) {
     const { data: prices } = await supabase
       .from('price_cache')
-      .select('ticker, price, fetched_at')
+      .select('ticker, price, previous_close, fetched_at')
       .in('ticker', tickers);
 
     if (prices) {
       for (const p of prices) {
-        priceMap.set(p.ticker, { price: p.price, fetched_at: p.fetched_at });
+        priceMap.set(p.ticker, {
+          price: p.price,
+          previous_close: p.previous_close ?? null,
+          fetched_at: p.fetched_at,
+        });
       }
     }
   }
@@ -65,6 +72,7 @@ export async function getHouseholdAssets(
   return assets.map((asset) => {
     const cached = asset.ticker ? priceMap.get(asset.ticker) : null;
     const currentPrice = cached?.price ?? null;
+    const previousClose = cached?.previous_close ?? null;
     let currentValue = 0;
 
     if (asset.manual_value != null && asset.manual_value !== '') {
@@ -79,6 +87,14 @@ export async function getHouseholdAssets(
       ? Date.now() - new Date(cached.fetched_at).getTime() > 24 * 60 * 60 * 1000
       : false;
 
+    // 당일 변동률: 장중/장마감 무관하게 동일 공식.
+    // 데이터 소스가 장중엔 price=현재가, 장마감 후엔 price=오늘 종가를 내려주고
+    // previous_close는 양쪽 모두 어제 종가로 일관됨.
+    const dailyChangeRate =
+      currentPrice != null && previousClose != null && previousClose > 0
+        ? ((currentPrice - previousClose) / previousClose) * 100
+        : null;
+
     return {
       ...asset,
       quantity: asset.quantity ? Number(asset.quantity) : null,
@@ -87,6 +103,8 @@ export async function getHouseholdAssets(
       current_value: currentValue,
       price_updated_at: cached?.fetched_at ?? null,
       is_stale: isStale,
+      previous_close: previousClose,
+      daily_change_rate: dailyChangeRate,
     } as AssetWithPrice;
   });
 }
