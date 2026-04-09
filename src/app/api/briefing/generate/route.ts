@@ -3,7 +3,7 @@ import { createClient as createAdminClient, type SupabaseClient } from '@supabas
 import { getSupabaseUrl, getServiceRoleKey } from '@/lib/env';
 import { fetchNewsForHoldings } from '@/lib/news';
 import { generateBriefing } from '@/lib/briefing/generate';
-import type { HoldingContext } from '@/lib/briefing/types';
+import type { BriefingProvider, HoldingContext } from '@/lib/briefing/types';
 
 type Admin = SupabaseClient;
 
@@ -33,8 +33,8 @@ export async function POST(request: Request) {
     // ignore
   }
 
-  // 가구 목록 조회
-  let householdsQuery = admin.from('households').select('id');
+  // 가구 목록 조회 (브리핑 provider 포함)
+  let householdsQuery = admin.from('households').select('id, briefing_provider');
   if (bodyHouseholdId) householdsQuery = householdsQuery.eq('id', bodyHouseholdId);
 
   const { data: households, error: hErr } = await householdsQuery;
@@ -48,7 +48,8 @@ export async function POST(request: Request) {
   const results: { household_id: string; status: string; cards: number; cost_usd: number }[] = [];
 
   for (const hh of households) {
-    const result = await generateForHousehold(admin, hh.id);
+    const provider = (hh.briefing_provider ?? 'anthropic') as BriefingProvider;
+    const result = await generateForHousehold(admin, hh.id, provider);
     results.push(result);
   }
 
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
 async function generateForHousehold(
   admin: Admin,
   householdId: string,
+  provider: BriefingProvider,
 ): Promise<{ household_id: string; status: string; cards: number; cost_usd: number }> {
   // 1. 보유 주식/코인 조회 (브리핑 대상은 stock + crypto, 부동산/현금은 제외)
   const { data: assets } = await admin
@@ -122,8 +124,8 @@ async function generateForHousehold(
   // 4. 뉴스 fetch (실패해도 계속 진행)
   const newsByTicker = await fetchNewsForHoldings(holdings, 5);
 
-  // 5. LLM 호출
-  const result = await generateBriefing(holdings, newsByTicker);
+  // 5. LLM 호출 (가구 설정에 따라 Anthropic 또는 OpenAI)
+  const result = await generateBriefing(holdings, newsByTicker, provider);
 
   // 6. DB 저장 (upsert by household_id + date)
   return await saveResult(admin, householdId, result);

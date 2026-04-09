@@ -1,5 +1,7 @@
 export type Signal = 'risk' | 'opportunity' | 'neutral';
 
+export type BriefingProvider = 'anthropic' | 'openai';
+
 export interface BriefingCard {
   ticker: string;
   name: string;

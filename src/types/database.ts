@@ -50,11 +50,14 @@ export type Ownership = 'personal' | 'shared';
 
 export type HouseholdRole = 'owner' | 'member';
 
+export type BriefingProvider = 'anthropic' | 'openai';
+
 export interface Household {
   id: string;
   name: string;
   goal_net_worth: number | null;
   goal_annual_dividend: number | null;
+  briefing_provider: BriefingProvider;
   created_at: string;
 }
 
