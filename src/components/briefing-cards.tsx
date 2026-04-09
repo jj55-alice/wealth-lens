@@ -38,6 +38,26 @@ const SIGNAL_STYLES: Record<Signal, { icon: string; color: string; label: string
 export function BriefingCards() {
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  async function handleRetry() {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await fetch('/api/briefing/generate', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setRetryError(data.error || `생성 실패 (${res.status})`);
+      } else {
+        await load();
+      }
+    } catch (e) {
+      setRetryError(e instanceof Error ? e.message : '네트워크 오류');
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   async function load() {
     try {
@@ -91,10 +111,35 @@ export function BriefingCards() {
 
   // 생성 실패 배너
   if (briefing.status === 'failed') {
+    const isCreditError = briefing.error_message?.toLowerCase().includes('credit balance');
     return (
-      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-500 text-xs">
-        ⚠ {briefing.date} 브리핑 생성 실패
-        {briefing.error_message && <span className="ml-1 text-muted-foreground">({briefing.error_message})</span>}
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-500 text-xs space-y-2">
+        <div>
+          ⚠ {briefing.date} 브리핑 생성 실패
+          {briefing.error_message && (
+            <span className="ml-1 text-muted-foreground">
+              ({briefing.error_message.slice(0, 120)}
+              {briefing.error_message.length > 120 ? '…' : ''})
+            </span>
+          )}
+        </div>
+        {isCreditError && (
+          <div className="text-muted-foreground">
+            💡 Anthropic 크레딧이 부족합니다. 설정 &gt; AI 브리핑 모델에서 OpenAI 로 전환하거나
+            Anthropic 크레딧을 충전한 뒤 다시 시도하세요.
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="rounded border border-amber-500/40 px-2 py-1 text-[11px] hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            {retrying ? '재시도 중...' : '🔄 다시 시도'}
+          </button>
+          {retryError && <span className="text-red-500 text-[11px]">{retryError}</span>}
+        </div>
       </div>
     );
   }

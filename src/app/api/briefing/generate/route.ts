@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import { getSupabaseUrl, getServiceRoleKey } from '@/lib/env';
 import { fetchNewsForHoldings } from '@/lib/news';
 import { generateBriefing } from '@/lib/briefing/generate';
@@ -7,20 +8,18 @@ import type { BriefingProvider, HoldingContext } from '@/lib/briefing/types';
 
 type Admin = SupabaseClient;
 
-// 매일 06:00 KST cron이 호출. 가구별로 보유 종목 → 뉴스 → LLM → briefing_cards 저장.
-// Vercel cron secret 검증으로 외부 호출 방지.
+// 두 가지 호출 경로:
+//   1) Vercel cron: Authorization: Bearer <CRON_SECRET> 헤더 → 모든 가구 루프
+//   2) 로그인한 사용자의 수동 재시도: 세션 인증 → 본인 가구만
 //
 // POST /api/briefing/generate
-//   Header: Authorization: Bearer <CRON_SECRET>  (Vercel cron이 자동 추가)
-//   Body: { household_id?: string }  // 옵션: 특정 가구만. 없으면 전체.
+//   Body: { household_id?: string }  // cron 모드에서만 특정 가구 지정 가능.
+//   사용자 모드에선 무시하고 본인 가구로 강제.
 export async function POST(request: Request) {
-  // Vercel cron 호출 검증 (수동 트리거 시에는 service role token 또는 dev mode 허용)
   const authHeader = request.headers.get('authorization') ?? '';
   const cronSecret = process.env.CRON_SECRET;
   const isDev = process.env.NODE_ENV !== 'production';
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}` && !isDev) {
-    return NextResponse.json({ error: '인증 필요' }, { status: 401 });
-  }
+  const isCron = cronSecret ? authHeader === `Bearer ${cronSecret}` : isDev;
 
   const admin = createAdminClient(getSupabaseUrl(), getServiceRoleKey());
 
@@ -31,6 +30,25 @@ export async function POST(request: Request) {
     bodyHouseholdId = body?.household_id;
   } catch {
     // ignore
+  }
+
+  // cron 이 아니면 로그인된 사용자로 인증하고 본인 가구로 강제
+  if (!isCron) {
+    const supabase = await createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: '인증 필요' }, { status: 401 });
+    }
+    const { data: membership } = await admin
+      .from('household_members')
+      .select('household_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership) {
+      return NextResponse.json({ error: '가구 없음' }, { status: 404 });
+    }
+    // 다른 가구를 지정하더라도 본인 가구로 덮어씀 (권한 분리)
+    bodyHouseholdId = membership.household_id;
   }
 
   // 가구 목록 조회 (브리핑 provider 포함)
