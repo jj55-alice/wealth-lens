@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,9 +42,20 @@ interface Props {
 }
 
 export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], monthlyGrowth, onMutate }: Props) {
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const { toast } = useToast();
+
+  // 서버 컴포넌트에서 호출된 경우 onMutate가 없을 수 있으므로
+  // router.refresh()로 폴백해서 서버 데이터를 다시 불러옴
+  const refreshData = useCallback(async () => {
+    if (onMutate) {
+      await onMutate();
+    } else {
+      router.refresh();
+    }
+  }, [onMutate, router]);
 
   const spouse = members.find(m => m.user_id !== currentUserId);
   const myName = members.find(m => m.user_id === currentUserId)?.nickname || '본인';
@@ -79,14 +91,14 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
       // 2. 시세 갱신
       const res = await fetch('/api/prices', { method: 'POST' });
       if (!res.ok) throw new Error();
-      if (onMutate) await onMutate();
+      await refreshData();
       toast(syncOk ? '업비트 잔고와 시세가 갱신되었습니다' : '시세가 갱신되었습니다', 'success');
     } catch {
       toast('시세 갱신에 실패했습니다', 'error');
     } finally {
       setRefreshing(false);
     }
-  }, [onMutate, toast]);
+  }, [refreshData, toast]);
 
   const hasRealEstate = assets.some(a => a.category === 'real_estate' && a.kb_complex_id);
   const [refreshingKb, setRefreshingKb] = useState(false);
@@ -97,14 +109,14 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
       const res = await fetch('/api/kb-refresh', { method: 'POST' });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      if (onMutate) await onMutate();
+      await refreshData();
       toast(`부동산 시세 ${data.updated}건 갱신됨`, 'success');
     } catch {
       toast('부동산 시세 갱신 실패', 'error');
     } finally {
       setRefreshingKb(false);
     }
-  }, [onMutate, toast]);
+  }, [refreshData, toast]);
 
   const totalAssets = filteredAssets.reduce((sum, a) => sum + a.current_value, 0);
   const totalLiabilities = filteredLiabilities.reduce((sum, l) => sum + l.balance, 0);
@@ -404,7 +416,7 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                     <CardTitle className="text-sm">자산 목록</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <AssetList assets={filteredAssets} exchangeRate={exchangeRate} onMutate={onMutate} />
+                    <AssetList assets={filteredAssets} exchangeRate={exchangeRate} onMutate={refreshData} />
                   </CardContent>
                 </Card>
               </>
@@ -427,7 +439,7 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               </CardHeader>
               <CardContent>
                 {filteredLiabilities.length > 0 ? (
-                  <LiabilityList liabilities={filteredLiabilities} onMutate={onMutate} />
+                  <LiabilityList liabilities={filteredLiabilities} onMutate={refreshData} />
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     {ownerFilter === 'all' ? '등록된 부채가 없습니다' : '해당 소유자의 부채가 없습니다'}
