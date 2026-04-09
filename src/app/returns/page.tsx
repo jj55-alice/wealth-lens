@@ -26,6 +26,37 @@ interface ReturnItem {
   returnPercent: number;
 }
 
+interface PeriodChange {
+  label: string;
+  daysAgo: number;
+  /** 비교 기준 스냅샷 날짜 (YYYY-MM-DD) */
+  snapshotDate: string;
+  /** 그 시점의 순자산 (KRW) */
+  snapshotNetWorth: number;
+  /** 현재 순자산 대비 변동 금액 */
+  delta: number;
+  /** 변동률 (%) */
+  deltaPct: number;
+}
+
+/**
+ * 해당 period 에 대해 가장 가까운 과거 스냅샷을 찾는다.
+ * snapshots 는 snapshot_date DESC 정렬 가정. 조건: snapshot_date ≤ target.
+ * 없으면 null.
+ */
+function findNearestSnapshot(
+  snapshots: { net_worth: number; snapshot_date: string }[],
+  daysAgo: number,
+): { net_worth: number; snapshot_date: string } | null {
+  const target = new Date();
+  target.setHours(0, 0, 0, 0);
+  target.setDate(target.getDate() - daysAgo);
+  for (const s of snapshots) {
+    if (new Date(s.snapshot_date) <= target) return s;
+  }
+  return null;
+}
+
 export default function ReturnsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -34,6 +65,7 @@ export default function ReturnsPage() {
   const [missingAssets, setMissingAssets] = useState<{ id: string; name: string }[]>([]);
   const [totalCost, setTotalCost] = useState(0);
   const [totalValue, setTotalValue] = useState(0);
+  const [periodChanges, setPeriodChanges] = useState<PeriodChange[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -111,6 +143,48 @@ export default function ReturnsPage() {
       setMissingAssets(missing.slice(0, 10));
       setTotalCost(costSum);
       setTotalValue(valueSum);
+
+      // 기간별 변동 — household_snapshots 기반 (시세연동 자산만이 아니라
+      // 전체 순자산 기준). 가장 최근 snapshot 을 "현재" 기준으로 사용.
+      const { data: snapshots } = await supabase
+        .from('household_snapshots')
+        .select('net_worth, snapshot_date')
+        .eq('household_id', membership.household_id)
+        .order('snapshot_date', { ascending: false });
+
+      if (snapshots && snapshots.length > 0) {
+        const current = Number(snapshots[0].net_worth);
+        const normalized = snapshots.map(s => ({
+          net_worth: Number(s.net_worth),
+          snapshot_date: s.snapshot_date,
+        }));
+        const PERIODS: { label: string; days: number }[] = [
+          { label: '1일 전 대비', days: 1 },
+          { label: '1달 전 대비', days: 30 },
+          { label: '3달 전 대비', days: 90 },
+          { label: '6달 전 대비', days: 180 },
+          { label: '1년 전 대비', days: 365 },
+        ];
+        const changes: PeriodChange[] = [];
+        for (const p of PERIODS) {
+          const past = findNearestSnapshot(normalized, p.days);
+          if (!past || past.net_worth <= 0) continue;
+          // 같은 snapshot 을 current 로 쓰는 경우(= 오늘 snapshot 하나뿐) 스킵
+          if (past.snapshot_date === snapshots[0].snapshot_date) continue;
+          const delta = current - past.net_worth;
+          const deltaPct = (delta / past.net_worth) * 100;
+          changes.push({
+            label: p.label,
+            daysAgo: p.days,
+            snapshotDate: past.snapshot_date,
+            snapshotNetWorth: past.net_worth,
+            delta,
+            deltaPct,
+          });
+        }
+        setPeriodChanges(changes);
+      }
+
       setLoading(false);
     }
     load();
@@ -211,6 +285,47 @@ export default function ReturnsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 기간별 변동 — household_snapshots 기반. 해당 period 스냅샷이 없으면 행 자체를 skip. */}
+            {periodChanges.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">기간별 변동</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {periodChanges.map((p) => (
+                      <div key={p.daysAgo} className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{p.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {p.snapshotDate} · {formatKRW(p.snapshotNetWorth)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-semibold tabular-nums ${
+                              p.delta >= 0 ? 'text-emerald-500' : 'text-red-500'
+                            }`}
+                          >
+                            {p.delta >= 0 ? '+' : ''}
+                            {formatKRW(p.delta)}
+                          </p>
+                          <p
+                            className={`text-[10px] tabular-nums ${
+                              p.delta >= 0 ? 'text-emerald-500' : 'text-red-500'
+                            }`}
+                          >
+                            {p.delta >= 0 ? '+' : ''}
+                            {p.deltaPct.toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 종목별 수익률 */}
             <Card>
