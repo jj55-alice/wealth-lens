@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [kisAccountNo, setKisAccountNo] = useState('');
   const [kisSyncing, setKisSyncing] = useState(false);
   const [kisSyncResult, setKisSyncResult] = useState('');
+  const [briefingProvider, setBriefingProvider] = useState<'anthropic' | 'openai'>('anthropic');
   const [showLogout, setShowLogout] = useState(false);
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -77,6 +78,7 @@ export default function SettingsPage() {
           setKisAppKey(data.household.kis_app_key ?? '');
           setKisAppSecret(data.household.kis_app_secret ?? '');
           setKisAccountNo(data.household.kis_account_no ?? '');
+          setBriefingProvider(data.household.briefing_provider ?? 'anthropic');
         }
         if (data.user) {
           setUserEmail(data.user.email ?? '');
@@ -112,6 +114,7 @@ export default function SettingsPage() {
           kis_app_key: kisAppKey || null,
           kis_app_secret: kisAppSecret || null,
           kis_account_no: kisAccountNo || null,
+          briefing_provider: briefingProvider,
         }),
       });
       setSaved(true);
@@ -261,6 +264,49 @@ export default function SettingsPage() {
                   연 {formatKRW(Number(goalDividend))} (월 {formatKRW(Math.round(Number(goalDividend) / 12))})
                 </p>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* AI 브리핑 provider */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">AI 브리핑 모델</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              매일 아침 보유 종목 뉴스를 요약하는 AI 모델을 선택하세요.
+              저장 후 다음 브리핑 생성부터 적용됩니다.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setBriefingProvider('anthropic')}
+                className={`flex-1 rounded-lg border px-4 py-3 text-sm transition-colors ${
+                  briefingProvider === 'anthropic'
+                    ? 'border-primary bg-primary/10 font-semibold'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                <div>Anthropic Claude</div>
+                <div className="text-[10px] font-normal text-muted-foreground mt-0.5">
+                  Sonnet 4.6 · 높은 품질
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBriefingProvider('openai')}
+                className={`flex-1 rounded-lg border px-4 py-3 text-sm transition-colors ${
+                  briefingProvider === 'openai'
+                    ? 'border-primary bg-primary/10 font-semibold'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                <div>OpenAI GPT</div>
+                <div className="text-[10px] font-normal text-muted-foreground mt-0.5">
+                  gpt-4o-mini · 저렴
+                </div>
+              </button>
             </div>
           </CardContent>
         </Card>
