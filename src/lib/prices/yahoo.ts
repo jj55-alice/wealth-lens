@@ -21,6 +21,12 @@ export const yahooAdapter: PriceAdapter = {
 
     return {
       price: meta.regularMarketPrice,
+      // Yahoo chart meta는 어제 종가를 chartPreviousClose 또는 previousClose로 내려준다.
+      // 장중엔 previousClose=어제 종가, 장마감 후에도 동일.
+      previousClose:
+        (typeof meta.chartPreviousClose === 'number' && meta.chartPreviousClose) ||
+        (typeof meta.previousClose === 'number' && meta.previousClose) ||
+        null,
       currency: meta.currency === 'KRW' ? 'KRW' : 'USD',
       timestamp: new Date(),
       source: 'yahoo_finance',

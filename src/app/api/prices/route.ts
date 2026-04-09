@@ -56,6 +56,7 @@ export async function POST() {
       {
         ticker,
         price: result.price,
+        previous_close: result.previousClose ?? null,
         currency: result.currency,
         source: result.source,
         fetched_at: new Date().toISOString(),

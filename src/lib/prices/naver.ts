@@ -26,17 +26,31 @@ export const naverAdapter: PriceAdapter = {
     }
 
     // closePrice comes as string with commas: "72,300"
-    const numericPrice =
-      typeof price === 'string'
-        ? Number(price.replace(/,/g, ''))
-        : Number(price);
+    const parseNum = (v: unknown): number | null => {
+      if (v == null) return null;
+      const n = typeof v === 'string' ? Number(v.replace(/,/g, '')) : Number(v);
+      return isNaN(n) ? null : n;
+    };
 
-    if (isNaN(numericPrice)) {
+    const numericPrice = parseNum(price);
+    if (numericPrice == null) {
       throw new Error(`Naver: invalid price format for ${ticker}: ${price}`);
     }
 
+    // 네이버 /basic 응답은 "전일 대비 변동 금액"을 compareToPreviousClosePrice 또는
+    // 유사한 필드로 내려준다. previousClose = currentPrice - compareDelta.
+    // 필드가 없으면 null로 둬서 UI에서 fallback 처리.
+    const compareDelta = parseNum(
+      data?.compareToPreviousClosePrice ??
+        data?.compareToPreviousPrice ??
+        data?.changePrice,
+    );
+    const previousClose =
+      compareDelta != null ? numericPrice - compareDelta : null;
+
     return {
       price: numericPrice,
+      previousClose,
       currency: 'KRW',
       timestamp: new Date(),
       source: 'krx',
