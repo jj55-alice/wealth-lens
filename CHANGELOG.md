@@ -2,6 +2,24 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.5.0] - 2026-04-09
+
+### Changed — Vercel 배포 성능 개선 (체감 LCP 2~4s → 1s 목표)
+프로덕션에서 대시보드가 너무 느리다는 문제를 조사해 3개 근본 원인을 찾아 한 번에 수정했습니다. 주요 병목은 (1) proxy가 모든 요청마다 Supabase Auth 왕복 2회, (2) 대시보드가 통째로 클라이언트 컴포넌트라 5~7개 네트워크 요청을 브라우저에서 직렬로 실행, (3) recharts 차트 전체가 초기 JS 번들에 포함된 것이었습니다.
+
+- **proxy 중복 auth 제거** (`src/proxy.ts`): `updateSession()`이 이미 `getUser()`를 호출하는데 루트 경로에서 또 한 번 호출하던 중복 제거. `updateSession`이 user를 함께 반환하도록 변경. matcher에 폰트/CSS/JS/cron 추가 제외 → 모든 요청 TTFB 약 0.4~0.8초 단축 기대.
+- **대시보드 서버 컴포넌트 전환** (`src/app/dashboard/page.tsx`): `'use client'` + `useEffect` 안의 직렬 워터폴을 서버 컴포넌트 + `Promise.all` 병렬 fetch로 재작성. assets, liabilities, members, snapshots, 환율을 한 번에 병렬 로딩. 서버↔Supabase는 브라우저↔Supabase보다 훨씬 빠름. HTML이 데이터까지 포함해서 한 번에 내려옴 → LCP 약 1.5~2.5초 단축 기대.
+- **차트 dynamic import** (`src/components/dashboard-view.tsx`): recharts 기반 `AssetPieChart`, `AllocationPieChart`, `ChangeAttribution`, `GoalProjection`, `BriefingCards`, `MonthlyChange`를 `next/dynamic({ ssr: false })` 로 lazy load. 로딩 중 Skeleton fallback. 초기 JS 번들 축소.
+- **next.config.ts**: `experimental.optimizePackageImports` 에 recharts, lucide-react, @base-ui/react 추가 → 사용 안 하는 export tree-shake.
+- **queries.ts 확장**: `getHouseholdMembers`, `getMonthlyGrowth` 신규 추가. `getHouseholdAssets`가 부동산 `kb_estimated_value` 처리. `getUserHousehold(userId)` 옵션 인자로 중복 `getUser()` 방지.
+- **DashboardView**: `onMutate` 미지정 시 `router.refresh()` 로 폴백 → 서버 컴포넌트 재검증 패턴 지원. 가격/부동산 새로고침 시 자동으로 서버 데이터 다시 불러옴.
+- **첫 로그인 가구 생성**: 드문 케이스는 `DashboardBootstrap` client 컴포넌트로 분리해서 `/api/household` POST 후 `router.refresh()`.
+
+### Fixed — MilestoneCheck 및 대시보드 데이터 정합성
+- **대시보드 query에 `goal_net_worth`, `goal_annual_dividend` 포함**: 목표 진행률 계산에 필요한 컬럼이 빠져있던 문제.
+- **MilestoneCheck 사용자 목표 우선**: 가구 설정보다 사용자 개인 목표를 먼저 사용하도록 수정. 이후 컴포넌트 자체는 제거.
+- **시세 갱신 버튼이 업비트 잔고도 동기화**: 기존엔 가격만 갱신했는데, 이제 `/api/upbit-sync` 도 같이 호출해서 보유 수량까지 최신화. 업비트 키 미설정/실패해도 시세 갱신은 계속 진행.
+
 ## [0.1.4.0] - 2026-04-07
 
 ### Added — 보유 종목 AI 브리핑 (Phase 4 MVP, B-lite)
