@@ -142,6 +142,10 @@ export interface AssetWithPrice extends Asset {
   current_value: number;
   price_updated_at: string | null;
   is_stale: boolean;
+  /** 어제 종가. 당일 변동률 계산용. null이면 데이터 없음. */
+  previous_close: number | null;
+  /** 당일 변동률 (%). (current_price - previous_close) / previous_close * 100. null이면 계산 불가. */
+  daily_change_rate: number | null;
 }
 
 export interface DashboardData {
