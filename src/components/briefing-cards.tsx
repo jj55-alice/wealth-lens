@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BriefingCard, Signal } from '@/lib/briefing/types';
+import type { PaceSummary } from '@/lib/briefing/pace';
 
 interface Briefing {
   id: string;
@@ -14,7 +15,14 @@ interface Briefing {
   model: string;
   cost_usd: number | null;
   error_message: string | null;
+  pace: PaceSummary | null;
   stale: boolean;
+}
+
+function formatKrwSigned(n: number): string {
+  const sign = n >= 0 ? '+' : '−';
+  const abs = Math.abs(Math.round(n));
+  return `${sign}₩${abs.toLocaleString('ko-KR')}`;
 }
 
 const SIGNAL_STYLES: Record<Signal, { icon: string; color: string; label: string }> = {
@@ -144,8 +152,26 @@ export function BriefingCards() {
     );
   }
 
-  // 카드 0개 (LLM이 가치 없다고 판단)
+  // 카드 0개 (LLM이 가치 없다고 판단) — pace 요약만 있으면 그거라도 노출
   if (briefing.cards.length === 0) {
+    if (briefing.pace && briefing.pace.totalDelta !== 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">오늘의 브리핑</CardTitle>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                {briefing.stale && <span className="text-amber-500">⚠ 어제 데이터</span>}
+                <span>{formatTime(briefing.generated_at)} 갱신</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <PaceSummaryBar pace={briefing.pace} />
+          </CardContent>
+        </Card>
+      );
+    }
     return null;
   }
 
@@ -161,6 +187,9 @@ export function BriefingCards() {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
+        {briefing.pace && briefing.pace.totalDelta !== 0 && (
+          <PaceSummaryBar pace={briefing.pace} />
+        )}
         {briefing.cards.map((card, idx) => {
           const style = SIGNAL_STYLES[card.signal] ?? SIGNAL_STYLES.neutral;
           return (
@@ -232,4 +261,66 @@ function formatTime(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function PaceSummaryBar({ pace }: { pace: PaceSummary }) {
+  const total = pace.totalDelta;
+  const up = total >= 0;
+  const totalColor = up ? 'text-emerald-500' : 'text-red-500';
+  const explained = pace.contribution + pace.marketDrift;
+  const denom = Math.abs(explained) || 1;
+  const contribPct = Math.round((pace.contribution / denom) * 100);
+  const mktPct = 100 - contribPct;
+  // 기여/시장 중 어느 쪽이 주도했는지 한 문장 요약
+  const dominantLabel = (() => {
+    if (Math.abs(explained) < 1) return null;
+    if (Math.abs(pace.contribution) > Math.abs(pace.marketDrift) * 1.5) {
+      return pace.contribution >= 0 ? '주로 매수 기여' : '주로 매도 반영';
+    }
+    if (Math.abs(pace.marketDrift) > Math.abs(pace.contribution) * 1.5) {
+      return pace.marketDrift >= 0 ? '주로 시장 상승' : '주로 시장 하락';
+    }
+    return '기여·시장 혼합';
+  })();
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-muted-foreground">
+          {pace.from} → {pace.to}
+        </span>
+        <span className={`font-semibold ${totalColor}`}>{formatKrwSigned(total)}</span>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span>기여 {formatKrwSigned(pace.contribution)}</span>
+        <span>·</span>
+        <span>시장 {formatKrwSigned(pace.marketDrift)}</span>
+        {pace.unknownDelta !== 0 && (
+          <>
+            <span>·</span>
+            <span>미분해 {formatKrwSigned(pace.unknownDelta)}</span>
+          </>
+        )}
+        {dominantLabel && (
+          <span className="ml-auto text-foreground/70">{dominantLabel}</span>
+        )}
+      </div>
+      {Math.abs(explained) >= 1 && (
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+          <div className="flex h-full">
+            <div
+              className="bg-sky-500"
+              style={{ width: `${Math.max(0, Math.min(100, contribPct))}%` }}
+              title={`기여 ${contribPct}%`}
+            />
+            <div
+              className="bg-amber-500"
+              style={{ width: `${Math.max(0, Math.min(100, mktPct))}%` }}
+              title={`시장 ${mktPct}%`}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

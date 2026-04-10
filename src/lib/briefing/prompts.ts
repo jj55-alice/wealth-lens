@@ -1,5 +1,12 @@
 import type { HoldingContext } from './types';
 import type { NewsItem } from '../news/types';
+import type { PaceSummary } from './pace';
+
+function fmtKrw(n: number): string {
+  const sign = n >= 0 ? '+' : '−';
+  const abs = Math.abs(Math.round(n));
+  return `${sign}₩${abs.toLocaleString('ko-KR')}`;
+}
 
 /**
  * System prompt — 액션 단어 금지 + JSON 출력 강제 + 한국어 + disclaimer 강제.
@@ -49,8 +56,38 @@ export const SYSTEM_PROMPT = `당신은 한국 사용자의 개인 주식 포트
 export function buildUserPrompt(
   holdings: HoldingContext[],
   newsByTicker: Map<string, NewsItem[]>,
+  pace: PaceSummary | null = null,
 ): string {
-  const lines: string[] = ['# 사용자 포트폴리오\n'];
+  const lines: string[] = [];
+
+  // Pace 컨텍스트 — LLM 이 "기여 vs 시장" 을 구분해서 카피를 쓰도록 힌트 제공
+  if (pace && pace.totalDelta !== 0) {
+    lines.push(`# 최근 1일 순자산 변동 (${pace.from} → ${pace.to})`);
+    lines.push(`- 총 변동: ${fmtKrw(pace.totalDelta)}`);
+    lines.push(`- 기여 (매수/매도 반영): ${fmtKrw(pace.contribution)}`);
+    lines.push(`- 시장 변동 (가격 움직임): ${fmtKrw(pace.marketDrift)}`);
+    if (pace.unknownDelta !== 0) {
+      lines.push(`- 미분해: ${fmtKrw(pace.unknownDelta)}`);
+    }
+    // 자산별 상위 3개 (|delta| 기준)
+    const ranked = [...pace.byAsset]
+      .filter((a) => a.reason === 'decomposed')
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 3);
+    if (ranked.length > 0) {
+      lines.push(`- 주요 움직임:`);
+      for (const a of ranked) {
+        const mkt = a.marketDrift ?? 0;
+        const contrib = a.contribution ?? 0;
+        lines.push(`  - ${a.ticker ?? a.asset_id}: ${fmtKrw(a.delta)} (시장 ${fmtKrw(mkt)} · 기여 ${fmtKrw(contrib)})`);
+      }
+    }
+    lines.push(
+      `\n**카피 가이드**: 위 "기여" 금액은 사용자의 매수/매도 때문이고, "시장 변동"은 가격 움직임 때문입니다. 이를 혼동해서 "시장이 올랐다" 같은 표현을 사용자 본인 매수 때문인 변동에 쓰지 마세요.\n`,
+    );
+  }
+
+  lines.push('# 사용자 포트폴리오\n');
 
   for (const h of holdings) {
     const returnStr = h.return_pct !== null ? `${h.return_pct >= 0 ? '+' : ''}${h.return_pct.toFixed(1)}%` : '매수가 미입력';

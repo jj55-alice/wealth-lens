@@ -153,11 +153,12 @@ async function generateForHousehold(
   // 4. 뉴스 fetch (실패해도 계속 진행)
   const newsByTicker = await fetchNewsForHoldings(holdings, 5);
 
-  // 5. LLM 호출 (가구 설정에 따라 Anthropic 또는 OpenAI)
-  const result = await generateBriefing(holdings, newsByTicker, provider);
-
-  // 6. Pace decomposition (실패해도 브리핑 저장엔 영향 없음)
+  // 5. Pace decomposition — LLM 프롬프트 컨텍스트로 주입하기 위해 먼저 계산
+  //    실패해도 브리핑 저장엔 영향 없도록 격리
   const pace = await computePaceForHousehold(admin, householdId).catch(() => null);
+
+  // 6. LLM 호출 (가구 설정에 따라 Anthropic 또는 OpenAI)
+  const result = await generateBriefing(holdings, newsByTicker, provider, pace);
 
   // 7. DB 저장 (upsert by household_id + date)
   return await saveResult(admin, householdId, result, pace);

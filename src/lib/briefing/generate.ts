@@ -1,6 +1,7 @@
 import { generateWithAnthropic } from './providers/anthropic';
 import { generateWithOpenAI } from './providers/openai';
 import type { BriefingProvider, BriefingResult, HoldingContext } from './types';
+import type { PaceSummary } from './pace';
 import type { NewsItem } from '../news/types';
 
 // parseCards 는 이제 ./parser.ts 에 있고 provider 들이 직접 호출.
@@ -15,6 +16,7 @@ export async function generateBriefing(
   holdings: HoldingContext[],
   newsByTicker: Map<string, NewsItem[]>,
   provider: BriefingProvider = 'anthropic',
+  pace: PaceSummary | null = null,
 ): Promise<BriefingResult> {
   // 보유 종목이 없으면 provider 호출 없이 빈 결과
   if (holdings.length === 0) {
@@ -30,9 +32,9 @@ export async function generateBriefing(
 
   switch (provider) {
     case 'openai':
-      return generateWithOpenAI(holdings, newsByTicker);
+      return generateWithOpenAI(holdings, newsByTicker, pace);
     case 'anthropic':
     default:
-      return generateWithAnthropic(holdings, newsByTicker);
+      return generateWithAnthropic(holdings, newsByTicker, pace);
   }
 }
