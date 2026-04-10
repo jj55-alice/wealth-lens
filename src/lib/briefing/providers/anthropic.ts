@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { SYSTEM_PROMPT, buildUserPrompt } from '../prompts';
 import { parseCards } from '../parser';
 import type { BriefingResult, HoldingContext } from '../types';
+import type { PaceSummary } from '../pace';
 import type { NewsItem } from '../../news/types';
 
 // Claude 가격 (1M tokens 기준, 2026-04 시점):
@@ -17,6 +18,7 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6';
 export async function generateWithAnthropic(
   holdings: HoldingContext[],
   newsByTicker: Map<string, NewsItem[]>,
+  pace: PaceSummary | null = null,
   modelOverride?: string,
 ): Promise<BriefingResult> {
   const model = modelOverride ?? DEFAULT_MODEL;
@@ -35,7 +37,7 @@ export async function generateWithAnthropic(
   }
 
   const client = new Anthropic({ apiKey });
-  const userPrompt = buildUserPrompt(holdings, newsByTicker);
+  const userPrompt = buildUserPrompt(holdings, newsByTicker, pace);
 
   try {
     const response = await client.messages.create({

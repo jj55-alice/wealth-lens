@@ -47,6 +47,7 @@ export async function GET() {
       model: card.model,
       cost_usd: card.cost_usd,
       error_message: card.error_message,
+      pace: card.pace ?? null,
       stale,
     },
   });
