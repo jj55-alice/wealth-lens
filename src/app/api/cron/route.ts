@@ -92,7 +92,7 @@ export async function GET(request: Request) {
       liabilitiesByHH.set(l.household_id, list);
     }
 
-    const assetSnapshotBatch: { asset_id: string; value: number; snapshot_date: string }[] = [];
+    const assetSnapshotBatch: { asset_id: string; value: number; quantity: number | null; price: number | null; snapshot_date: string }[] = [];
     const liabilitySnapshotBatch: { liability_id: string; balance: number; snapshot_date: string }[] = [];
     const householdSnapshotBatch: { household_id: string; total_assets: number; total_liabilities: number; net_worth: number; snapshot_date: string }[] = [];
 
@@ -100,11 +100,13 @@ export async function GET(request: Request) {
       const assets = assetsByHH.get(hh.id) ?? [];
       let totalAssets = 0;
       for (const a of assets) {
+        const qty = a.quantity ? Number(a.quantity) : null;
+        const px = a.ticker && qty != null ? (priceLookup.get(a.ticker) ?? null) : null;
         const value = a.manual_value
           ? Number(a.manual_value)
-          : (a.ticker && a.quantity ? (priceLookup.get(a.ticker) ?? 0) * Number(a.quantity) : 0);
+          : (a.ticker && qty != null ? (priceLookup.get(a.ticker) ?? 0) * qty : 0);
         totalAssets += value;
-        assetSnapshotBatch.push({ asset_id: a.id, value, snapshot_date: today });
+        assetSnapshotBatch.push({ asset_id: a.id, value, quantity: qty, price: px, snapshot_date: today });
       }
 
       const liabilities = liabilitiesByHH.get(hh.id) ?? [];

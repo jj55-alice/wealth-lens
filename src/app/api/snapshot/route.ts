@@ -54,19 +54,22 @@ export async function POST() {
   }
 
   // 자산 스냅샷
+  const snapshotDate = new Date().toISOString().slice(0, 10);
   let totalAssets = 0;
   for (const asset of allAssets ?? []) {
+    const qty = asset.quantity != null ? Number(asset.quantity) : null;
+    const px = asset.ticker && qty != null ? (priceMap.get(asset.ticker) ?? null) : null;
     let value = 0;
     if (asset.manual_value) {
       value = Number(asset.manual_value);
-    } else if (asset.ticker && asset.quantity) {
+    } else if (asset.ticker && qty != null) {
       const price = priceMap.get(asset.ticker);
-      if (price) value = price * Number(asset.quantity);
+      if (price) value = price * qty;
     }
     totalAssets += value;
 
     await supabaseAdmin.from('asset_snapshots').upsert(
-      { asset_id: asset.id, value, snapshot_date: new Date().toISOString().slice(0, 10) },
+      { asset_id: asset.id, value, quantity: qty, price: px, snapshot_date: snapshotDate },
       { onConflict: 'asset_id,snapshot_date' }
     );
   }
