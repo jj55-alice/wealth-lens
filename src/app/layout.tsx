@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { ToastProvider } from '@/components/ui/toast';
@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: 'Wealth Lens — 우리 집 자산 한눈에',
   description: '부부가 함께 보는 가구 자산 대시보드',
   manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
   themeColor: '#0a0a0a',
 };
 
