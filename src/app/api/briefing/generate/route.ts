@@ -4,6 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { getSupabaseUrl, getServiceRoleKey } from '@/lib/env';
 import { fetchNewsForHoldings } from '@/lib/news';
 import { generateBriefing } from '@/lib/briefing/generate';
+import { decomposePace, type PaceSummary, type SnapshotRow } from '@/lib/briefing/pace';
 import type { BriefingProvider, HoldingContext } from '@/lib/briefing/types';
 
 type Admin = SupabaseClient;
@@ -108,7 +109,7 @@ async function generateForHousehold(
       inputTokens: 0,
       outputTokens: 0,
       costUsd: 0,
-    });
+    }, null);
   }
 
   // 2. 가격 캐시 조회 (current_value 계산용)
@@ -155,14 +156,78 @@ async function generateForHousehold(
   // 5. LLM 호출 (가구 설정에 따라 Anthropic 또는 OpenAI)
   const result = await generateBriefing(holdings, newsByTicker, provider);
 
-  // 6. DB 저장 (upsert by household_id + date)
-  return await saveResult(admin, householdId, result);
+  // 6. Pace decomposition (실패해도 브리핑 저장엔 영향 없음)
+  const pace = await computePaceForHousehold(admin, householdId).catch(() => null);
+
+  // 7. DB 저장 (upsert by household_id + date)
+  return await saveResult(admin, householdId, result, pace);
+}
+
+/**
+ * 해당 가구의 가장 최근 두 스냅샷 날짜를 찾아 decompose 한다.
+ * 스냅샷이 1개 이하이면 null.
+ */
+async function computePaceForHousehold(admin: Admin, householdId: string): Promise<PaceSummary | null> {
+  // 가구의 asset id 목록
+  const { data: assetRows } = await admin
+    .from('assets')
+    .select('id, ticker, name')
+    .eq('household_id', householdId);
+  if (!assetRows || assetRows.length === 0) return null;
+  const assetIds = assetRows.map((a) => a.id);
+
+  // 가장 최근 2개의 snapshot_date 를 찾는다 (가구 전체 기준)
+  const { data: distinctDates } = await admin
+    .from('asset_snapshots')
+    .select('snapshot_date')
+    .in('asset_id', assetIds)
+    .order('snapshot_date', { ascending: false })
+    .limit(500); // 충분히 커서 중복 제거 후 2개 확보
+  if (!distinctDates || distinctDates.length === 0) return null;
+
+  const uniqueDates: string[] = [];
+  for (const row of distinctDates) {
+    if (!uniqueDates.includes(row.snapshot_date)) uniqueDates.push(row.snapshot_date);
+    if (uniqueDates.length === 2) break;
+  }
+  if (uniqueDates.length < 2) return null;
+
+  const [toDate, fromDate] = uniqueDates; // desc 정렬이므로 [0]=today, [1]=prior
+
+  const { data: snapRows } = await admin
+    .from('asset_snapshots')
+    .select('asset_id, value, quantity, price, snapshot_date')
+    .in('asset_id', assetIds)
+    .in('snapshot_date', [toDate, fromDate]);
+  if (!snapRows) return null;
+
+  const prior = new Map<string, SnapshotRow>();
+  const today = new Map<string, SnapshotRow>();
+  for (const r of snapRows) {
+    const row: SnapshotRow = {
+      asset_id: r.asset_id,
+      value: Number(r.value),
+      quantity: r.quantity != null ? Number(r.quantity) : null,
+      price: r.price != null ? Number(r.price) : null,
+    };
+    if (r.snapshot_date === toDate) today.set(r.asset_id, row);
+    else if (r.snapshot_date === fromDate) prior.set(r.asset_id, row);
+  }
+
+  return decomposePace({
+    from: fromDate,
+    to: toDate,
+    prior,
+    today,
+    assets: assetRows.map((a) => ({ id: a.id, ticker: a.ticker, name: a.name })),
+  });
 }
 
 async function saveResult(
   admin: Admin,
   householdId: string,
   result: Awaited<ReturnType<typeof generateBriefing>>,
+  pace: PaceSummary | null,
 ): Promise<{ household_id: string; status: string; cards: number; cost_usd: number }> {
   const today = new Date().toISOString().slice(0, 10);
   await admin
@@ -179,6 +244,7 @@ async function saveResult(
         cost_usd: result.costUsd,
         error_message: result.errorMessage ?? null,
         generated_at: new Date().toISOString(),
+        pace,
       },
       { onConflict: 'household_id,date' },
     );
