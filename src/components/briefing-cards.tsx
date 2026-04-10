@@ -201,7 +201,9 @@ export function BriefingCards() {
                 <span className={`${style.color} text-sm leading-5 mt-0.5`}>{style.icon}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-5">
-                    <span className="text-muted-foreground mr-1.5">{card.ticker}</span>
+                    <span className="text-muted-foreground mr-1.5">
+                      {card.name || card.ticker}
+                    </span>
                     {card.headline}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{card.context}</p>
