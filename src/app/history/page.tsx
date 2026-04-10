@@ -185,7 +185,7 @@ export default function HistoryPage() {
                     <YAxis
                       tick={{ fontSize: 11 }}
                       stroke="hsl(var(--muted-foreground))"
-                      tickFormatter={(v) => `${(v / 100000000).toFixed(0)}억`}
+                      tickFormatter={(v) => formatKRW(v)}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Area
@@ -213,7 +213,7 @@ export default function HistoryPage() {
                     <YAxis
                       tick={{ fontSize: 11 }}
                       stroke="hsl(var(--muted-foreground))"
-                      tickFormatter={(v) => `${(v / 100000000).toFixed(0)}억`}
+                      tickFormatter={(v) => formatKRW(v)}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line type="monotone" dataKey="total_assets" stroke="#22c55e" strokeWidth={2} dot={false} name="total_assets" />
