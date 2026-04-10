@@ -2,6 +2,20 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.1.6.0] - 2026-04-10
+
+### Added — Pace decomposition: 어제 → 오늘 순자산 변동 분해
+하루치 순자산 변동을 "기여(매수·매도)" vs "시장 변동(가격 움직임)" 두 축으로 자동 분해합니다. 주식이 떨어졌는데 잔고가 늘었다면, 그게 본인이 더 샀기 때문인지 시장이 올라서인지 한 줄로 알 수 있습니다. 브리핑 카드 상단에 요약 바가 노출되고, 동일 정보가 LLM 프롬프트에도 컨텍스트로 들어가서 카피가 "매수 기여"와 "시장 변동"을 혼동하지 않습니다.
+
+- **DB 스키마**: `asset_snapshots`에 `quantity`/`price` 컬럼 추가, `briefing_cards`에 `pace jsonb` 컬럼 추가. 기존 행은 NULL 허용 — 첫날엔 분해 불가능하지만 다음날부터 정상 동작.
+- **스냅샷 경로 통일**: cron(`/api/cron`)과 수동 스냅샷(`/api/snapshot`) 두 진입점 모두 새 컬럼을 채우도록 정리. `quantity != null` 체크로 0 수량도 보존.
+- **분해 엔진** (`src/lib/briefing/pace.ts`): 순수 함수.
+  - `Δvalue = prior.qty × (to.price − from.price)` (시장) + `(to.qty − prior.qty) × to.price` (기여)
+  - prior 없는 자산 → `new_asset`, today 없는 자산 → `removed_asset`, NULL 수량/가격 → `missing_*` — 분해 불가는 `unknownDelta`로 별도 집계.
+- **브리핑 파이프라인 연결**: `/api/briefing/generate`가 가장 최근 두 스냅샷 날짜를 자동 조회해서 분해 → `briefing_cards.pace`에 jsonb 저장. 실패해도 브리핑 자체엔 영향 없도록 격리.
+- **UI** (`src/components/briefing-cards.tsx`): `PaceSummaryBar` 컴포넌트로 총 변동 ±₩X, 기여/시장 2색 분포 바, "주로 매수 기여" / "주로 시장 상승" 같은 지배 요인 라벨. LLM 카드가 0개여도 pace 요약 단독 노출.
+- **LLM 컨텍스트 주입** (`src/lib/briefing/prompts.ts`): user 프롬프트 최상단에 "최근 1일 순자산 변동" 섹션 + 주요 움직임 상위 3개 자산. 카피 가이드: "시장이 올랐다"를 본인 매수 때문인 변동에 잘못 쓰지 말라는 명시적 지시.
+
 ## [0.1.5.0] - 2026-04-09
 
 ### Changed — Vercel 배포 성능 개선 (체감 LCP 2~4s → 1s 목표)
