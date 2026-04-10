@@ -45,7 +45,7 @@ export function AssetPieChart({ assets }: Props) {
   return (
     <div>
       <div className="h-[180px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
         <PieChart>
           <Pie
             data={data}
