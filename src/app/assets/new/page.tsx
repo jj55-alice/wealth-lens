@@ -710,7 +710,7 @@ export default function NewAssetPage() {
               <div className="space-y-1.5">
                 <Label>계좌 유형</Label>
                 <Select value={accountType} onValueChange={(v) => v && setAccountType(v)}>
-                  <SelectTrigger><SelectValue placeholder="일반" /></SelectTrigger>
+                  <SelectTrigger><SelectValue>{STOCK_ACCOUNT_TYPES.find(t => t.value === accountType)?.label ?? accountType}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {STOCK_ACCOUNT_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -912,7 +912,7 @@ export default function NewAssetPage() {
               <div className="space-y-1.5">
                 <Label>유형</Label>
                 <Select value={liabilityType} onValueChange={(v) => v && setLiabilityType(v as LiabilityCategory)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue>{LIABILITY_TYPES.find(t => t.value === liabilityType)?.label ?? liabilityType}</SelectValue></SelectTrigger>
                   <SelectContent>
                     {LIABILITY_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
