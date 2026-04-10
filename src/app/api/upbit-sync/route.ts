@@ -45,7 +45,7 @@ export async function POST() {
   };
 
   if (!hh.upbit_access_key || !hh.upbit_secret_key) {
-    return NextResponse.json({ error: 'Upbit API 키가 설정되지 않았습니다. 설정 페이지에서 입력해주세요.' }, { status: 400 });
+    return NextResponse.json({ skipped: true, reason: 'no_keys' });
   }
 
   // Upbit 잔고 조회
