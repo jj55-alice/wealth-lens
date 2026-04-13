@@ -1,6 +1,11 @@
 'use client';
 
 import type { AssetWithPrice, Liability } from '@/types/database';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface HealthScoreProps {
   assets: AssetWithPrice[];
@@ -9,9 +14,20 @@ interface HealthScoreProps {
   totalLiabilities: number;
 }
 
-function calculateScore(props: HealthScoreProps): number {
+interface ScoreBreakdown {
+  total: number;
+  diversification: number;
+  emergency: number;
+  debt: number;
+  emergencyMonths: number;
+  debtRatio: number;
+  categoryCount: number;
+}
+
+function calculateScore(props: HealthScoreProps): ScoreBreakdown {
   const { assets, totalAssets, totalLiabilities } = props;
-  let score = 0;
+  let diversification = 0;
+  let categoryCount = 0;
 
   // 1. 자산 분산도 (HHI 기반, 0-35점)
   if (totalAssets > 0) {
@@ -20,34 +36,35 @@ function calculateScore(props: HealthScoreProps): number {
       const cur = categoryTotals.get(a.category) ?? 0;
       categoryTotals.set(a.category, cur + a.current_value);
     }
+    categoryCount = categoryTotals.size;
     const shares = Array.from(categoryTotals.values()).map(
       (v) => v / totalAssets,
     );
     const hhi = shares.reduce((sum, s) => sum + s * s, 0);
-    // HHI 1.0 = 완전 집중 (0점), HHI 0.2 = 5개 균등 (35점)
-    score += Math.round(Math.max(0, (1 - hhi) / 0.8) * 35);
+    diversification = Math.round(Math.max(0, (1 - hhi) / 0.8) * 35);
   }
 
   // 2. 비상금 비율 (현금 / 추정 월지출, 0-35점)
   const cashTotal = assets
     .filter((a) => a.category === 'cash')
     .reduce((sum, a) => sum + a.current_value, 0);
-  // 추정 월지출 = 순자산의 0.5% (간이 추정, v2에서 사용자 입력으로 대체)
   const estimatedMonthly = Math.max(totalAssets * 0.005, 1);
   const emergencyMonths = cashTotal / estimatedMonthly;
-  // 6개월 이상 = 만점
-  score += Math.round(Math.min(emergencyMonths / 6, 1) * 35);
+  const emergency = Math.round(Math.min(emergencyMonths / 6, 1) * 35);
 
   // 3. 부채 비율 (부채/총자산, 0-30점)
+  let debtRatio = 0;
+  let debt = 0;
   if (totalAssets > 0) {
-    const debtRatio = totalLiabilities / totalAssets;
-    // 0% = 만점, 60% 이상 = 0점
-    score += Math.round(Math.max(0, 1 - debtRatio / 0.6) * 30);
+    debtRatio = totalLiabilities / totalAssets;
+    debt = Math.round(Math.max(0, 1 - debtRatio / 0.6) * 30);
   } else {
-    score += totalLiabilities === 0 ? 30 : 0;
+    debt = totalLiabilities === 0 ? 30 : 0;
   }
 
-  return Math.min(100, Math.max(0, score));
+  const total = Math.min(100, Math.max(0, diversification + emergency + debt));
+
+  return { total, diversification, emergency, debt, emergencyMonths, debtRatio, categoryCount };
 }
 
 function getScoreColor(score: number): string {
@@ -64,16 +81,72 @@ function getScoreLabel(score: number): string {
   return '주의';
 }
 
+function MetricBar({ score, max }: { score: number; max: number }) {
+  const pct = Math.round((score / max) * 100);
+  return (
+    <div className="h-1.5 w-full rounded-full bg-muted">
+      <div
+        className="h-full rounded-full bg-current transition-all"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
 export function HealthScore(props: HealthScoreProps) {
-  const score = calculateScore(props);
-  const color = getScoreColor(score);
-  const label = getScoreLabel(score);
+  const breakdown = calculateScore(props);
+  const color = getScoreColor(breakdown.total);
+  const label = getScoreLabel(breakdown.total);
 
   return (
-    <div className="text-center">
-      <div className={`text-3xl font-bold ${color}`}>{score}</div>
-      <div className="text-xs text-muted-foreground">재무 건강</div>
-      <div className={`text-xs font-medium ${color}`}>{label}</div>
-    </div>
+    <Tooltip>
+      <TooltipTrigger
+        className="text-center cursor-help outline-none"
+      >
+        <div className={`text-3xl font-bold ${color}`}>{breakdown.total}</div>
+        <div className="text-xs text-muted-foreground">재무 건강</div>
+        <div className={`text-xs font-medium ${color}`}>{label}</div>
+      </TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        align="end"
+        className="w-64 p-3 space-y-2.5 text-left"
+      >
+        <div className="font-medium text-xs mb-2">점수 산정 기준</div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs">
+            <span>자산 분산도</span>
+            <span className="tabular-nums">{breakdown.diversification}/35</span>
+          </div>
+          <MetricBar score={breakdown.diversification} max={35} />
+          <div className="text-[10px] opacity-70">
+            {breakdown.categoryCount}개 자산군 · HHI 지수 기반 (5개 균등 = 만점)
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs">
+            <span>비상금 비율</span>
+            <span className="tabular-nums">{breakdown.emergency}/35</span>
+          </div>
+          <MetricBar score={breakdown.emergency} max={35} />
+          <div className="text-[10px] opacity-70">
+            현금 {breakdown.emergencyMonths.toFixed(1)}개월분 · 6개월 이상 = 만점
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs">
+            <span>부채 비율</span>
+            <span className="tabular-nums">{breakdown.debt}/30</span>
+          </div>
+          <MetricBar score={breakdown.debt} max={30} />
+          <div className="text-[10px] opacity-70">
+            부채 {(breakdown.debtRatio * 100).toFixed(0)}% · 0% = 만점, 60%↑ = 0점
+          </div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
