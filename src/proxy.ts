@@ -16,6 +16,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // 정적 자산, 이미지, public 파일, cron 엔드포인트(자체 인증) 제외
-    '/((?!_next/static|_next/image|favicon.ico|api/cron|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|css|js)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/cron|api/briefing/generate|api/report|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|css|js)$).*)',
   ],
 };

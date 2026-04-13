@@ -112,9 +112,29 @@ export function BriefingCards() {
     return <Skeleton className="h-32 w-full rounded-xl" />;
   }
 
-  // 브리핑이 아예 없거나 보유 종목이 없는 경우 → 표시 안 함
-  if (!briefing || briefing.status === 'empty') {
+  // 보유 종목이 없어서 브리핑 대상이 없는 경우
+  if (briefing?.status === 'empty') {
     return null;
+  }
+
+  // 브리핑이 한 번도 생성된 적 없는 경우 → 수동 생성 버튼 표시
+  if (!briefing) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-2 py-6">
+          <p className="text-sm text-muted-foreground">오늘의 AI 브리핑이 아직 생성되지 않았습니다</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+          >
+            {retrying ? '생성 중...' : '🤖 브리핑 생성하기'}
+          </button>
+          {retryError && <span className="text-red-500 text-[11px]">{retryError}</span>}
+        </CardContent>
+      </Card>
+    );
   }
 
   // 생성 실패 배너
