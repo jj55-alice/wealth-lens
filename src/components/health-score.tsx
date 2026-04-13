@@ -53,13 +53,15 @@ function calculateScore(props: HealthScoreProps): ScoreBreakdown {
   const emergency = Math.round(Math.min(emergencyMonths / 6, 1) * 35);
 
   // 3. 부채 비율 (부채/총자산, 0-30점)
-  let debtRatio = 0;
   let debt = 0;
+  let debtRatio = 0;
   if (totalAssets > 0) {
     debtRatio = totalLiabilities / totalAssets;
     debt = Math.round(Math.max(0, 1 - debtRatio / 0.6) * 30);
+  } else if (totalLiabilities === 0) {
+    debt = 30;
   } else {
-    debt = totalLiabilities === 0 ? 30 : 0;
+    debtRatio = 1; // 자산 0원 + 부채 있음 → 100%로 표시
   }
 
   const total = Math.min(100, Math.max(0, diversification + emergency + debt));
