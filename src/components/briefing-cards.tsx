@@ -56,7 +56,11 @@ export function BriefingCards() {
       const res = await fetch('/api/briefing/generate', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setRetryError(data.error || `생성 실패 (${res.status})`);
+        if (res.status === 401) {
+          setRetryError(data.detail || '세션이 만료되었습니다. 페이지를 새로고침해주세요.');
+        } else {
+          setRetryError(data.error || `생성 실패 (${res.status})`);
+        }
       } else {
         await load();
       }

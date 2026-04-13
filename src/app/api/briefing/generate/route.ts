@@ -46,9 +46,12 @@ async function handleRequest(request: Request) {
   // cron 이 아니면 로그인된 사용자로 인증하고 본인 가구로 강제
   if (!isCron) {
     const supabase = await createServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: '인증 필요' }, { status: 401 });
+      return NextResponse.json(
+        { error: '인증 필요', detail: authError?.message ?? '세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.' },
+        { status: 401 },
+      );
     }
     const { data: membership } = await admin
       .from('household_members')
