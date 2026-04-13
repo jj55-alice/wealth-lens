@@ -20,6 +20,15 @@ import type { RebalancingTarget, RebalancingStatus, TradeGuide } from '@/lib/reb
 import type { AssetWithPrice } from '@/types/database';
 import { getHouseholdAssets } from '@/lib/queries';
 
+interface HistoryEntry {
+  id: string;
+  status: string;
+  max_drift: number;
+  suggestions: unknown;
+  total_liquid: number;
+  checked_at: string;
+}
+
 const CLASS_COLORS: Record<string, string> = {
   domestic_equity: 'bg-blue-500',
   foreign_equity: 'bg-violet-500',
@@ -43,6 +52,9 @@ export default function RebalancingPage() {
   const [dirty, setDirty] = useState(false);
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [checkSaving, setCheckSaving] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -56,12 +68,14 @@ export default function RebalancingPage() {
       .maybeSingle();
     if (!membership) { setLoading(false); return; }
 
-    const [fetchedAssets, targetsRes] = await Promise.all([
+    const [fetchedAssets, targetsRes, historyRes] = await Promise.all([
       getHouseholdAssets(supabase, membership.household_id),
       fetch('/api/rebalancing').then(r => r.json()),
+      fetch('/api/rebalancing/history').then(r => r.json()).catch(() => ({ history: [] })),
     ]);
 
     setAssets(fetchedAssets);
+    setHistory(historyRes.history ?? []);
     const targets = targetsRes.targets ?? [];
     setSavedTargets(targets);
     setSimTargets(targets.length > 0 ? targets : PRESETS.balanced);
@@ -378,6 +392,73 @@ export default function RebalancingPage() {
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-amber-500 text-xs">
             &#9888; 일부 자산의 시세가 7일 이상 지났습니다. 시세를 갱신한 후 다시 확인하세요.
           </div>
+        )}
+
+        {/* 확인 완료 + 이력 */}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            이력 {showHistory ? '닫기' : '보기'} {history.length > 0 && `(${history.length})`}
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={checkSaving}
+            onClick={async () => {
+              setCheckSaving(true);
+              const maxDrift = Math.max(...(result?.suggestions.map(s => Math.abs(s.diffPercent)) ?? [0]));
+              await fetch('/api/rebalancing/history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  status,
+                  maxDrift: maxDrift.toFixed(2),
+                  suggestions: activeSuggestions,
+                  totalLiquid,
+                }),
+              });
+              // 이력 갱신
+              const res = await fetch('/api/rebalancing/history').then(r => r.json());
+              setHistory(res.history ?? []);
+              setCheckSaving(false);
+            }}
+          >
+            {checkSaving ? '저장 중...' : '확인 완료'}
+          </Button>
+        </div>
+
+        {/* 이력 목록 */}
+        {showHistory && history.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">리밸런싱 이력</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {history.map(h => {
+                const date = new Date(h.checked_at);
+                const statusLabel = h.status === 'balanced' ? '균형' : h.status === 'urgent' ? '긴급' : '조정 필요';
+                const statusColor = h.status === 'balanced' ? 'text-emerald-500' : h.status === 'urgent' ? 'text-red-500' : 'text-amber-500';
+                return (
+                  <div key={h.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
+                    <div>
+                      <p className="text-sm tabular-nums">
+                        {date.toLocaleDateString('ko-KR')} {date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        유동자산 {formatKRW(h.total_liquid)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-medium ${statusColor}`}>{statusLabel}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">최대 편차 {Number(h.max_drift).toFixed(1)}%p</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         )}
       </main>
     </div>

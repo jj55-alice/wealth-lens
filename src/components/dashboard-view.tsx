@@ -55,6 +55,10 @@ const MarketRankings = dynamic(
   () => import('@/components/market-rankings').then((m) => m.MarketRankings),
   { ssr: false, loading: ChartFallback },
 );
+const RebalancingPreview = dynamic(
+  () => import('@/components/rebalancing-preview').then((m) => m.RebalancingPreview),
+  { ssr: false },
+);
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
@@ -428,18 +432,8 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                   </Card>
                 </div>
 
-                {/* 리밸런싱 진입점 */}
-                <Link href="/rebalancing">
-                  <Card className="hover:bg-muted/30 transition-colors cursor-pointer">
-                    <CardContent className="py-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">리밸런싱</p>
-                        <p className="text-xs text-muted-foreground">목표 배분과 현재 포트폴리오를 비교해보세요</p>
-                      </div>
-                      <span className="text-muted-foreground text-sm">&rarr;</span>
-                    </CardContent>
-                  </Card>
-                </Link>
+                {/* 리밸런싱 미리보기 */}
+                <RebalancingPreview assets={assets} />
 
                 {/* Top Assets */}
                 <Card>
