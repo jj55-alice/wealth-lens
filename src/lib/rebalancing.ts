@@ -27,6 +27,18 @@ export interface RebalancingSuggestion {
 
 export type RebalancingStatus = 'balanced' | 'needs_adjustment' | 'urgent';
 
+export interface TradeGuide {
+  assetClass: string;
+  ticker: string;
+  name: string;
+  action: 'sell' | 'buy';
+  shares: number;
+  amount: number;
+  currentPrice: number;
+  currentValue: number;
+  weight: number; // 해당 클래스 내 비중 (%)
+}
+
 const CLASS_LABELS: Record<string, string> = {
   domestic_equity: '국내주식',
   foreign_equity: '해외주식',
@@ -139,6 +151,89 @@ export function computeRebalancing(
   else if (maxDiffPercent >= 3) status = 'needs_adjustment';
 
   return { allocations, suggestions, status, totalLiquid, hasStaleWarning };
+}
+
+/**
+ * 자산군별 매매 금액을 종목 단위로 분해합니다.
+ * 매도: 비중 높은 종목부터, 매수: 비중 낮은 종목부터.
+ */
+export function computeTradeGuides(
+  assets: AssetWithPrice[],
+  suggestions: RebalancingSuggestion[],
+): TradeGuide[] {
+  const liquid = filterLiquidAssets(assets);
+  const guides: TradeGuide[] = [];
+
+  for (const s of suggestions) {
+    if (s.action === 'hold') continue;
+
+    // 해당 클래스의 종목들
+    const classAssets = liquid
+      .filter(a => (a.asset_class ?? 'cash_equiv') === s.assetClass)
+      .filter(a => a.ticker && a.current_value > 0);
+
+    if (classAssets.length === 0) {
+      // 매수인데 해당 클래스에 종목이 없음 → 클래스 레벨 제안만 표시
+      continue;
+    }
+
+    const classTotal = classAssets.reduce((sum, a) => sum + a.current_value, 0);
+    let remaining = s.amount;
+
+    if (s.action === 'sell') {
+      // 비중 높은 종목부터 매도
+      const sorted = [...classAssets].sort((a, b) => b.current_value - a.current_value);
+      for (const asset of sorted) {
+        if (remaining <= 0) break;
+        const price = asset.current_value / (asset.quantity ? Number(asset.quantity) : 1);
+        if (price <= 0) continue;
+        const sellAmount = Math.min(remaining, asset.current_value);
+        const shares = Math.floor(sellAmount / price);
+        if (shares <= 0) continue;
+        const actualAmount = shares * price;
+        guides.push({
+          assetClass: s.assetClass,
+          ticker: asset.ticker ?? '',
+          name: asset.name,
+          action: 'sell',
+          shares,
+          amount: actualAmount,
+          currentPrice: price,
+          currentValue: asset.current_value,
+          weight: classTotal > 0 ? (asset.current_value / classTotal) * 100 : 0,
+        });
+        remaining -= actualAmount;
+      }
+    } else {
+      // 매수: 비중 낮은 종목부터 (목표에 가까워지도록)
+      const sorted = [...classAssets].sort((a, b) => a.current_value - b.current_value);
+      // 균등 분배 후 종목별 주수 계산
+      const perAsset = remaining / sorted.length;
+      for (const asset of sorted) {
+        if (remaining <= 0) break;
+        const price = asset.current_value / (asset.quantity ? Number(asset.quantity) : 1);
+        if (price <= 0) continue;
+        const buyAmount = Math.min(perAsset, remaining);
+        const shares = Math.floor(buyAmount / price);
+        if (shares <= 0) continue;
+        const actualAmount = shares * price;
+        guides.push({
+          assetClass: s.assetClass,
+          ticker: asset.ticker ?? '',
+          name: asset.name,
+          action: 'buy',
+          shares,
+          amount: actualAmount,
+          currentPrice: price,
+          currentValue: asset.current_value,
+          weight: classTotal > 0 ? (asset.current_value / classTotal) * 100 : 0,
+        });
+        remaining -= actualAmount;
+      }
+    }
+  }
+
+  return guides;
 }
 
 /**
