@@ -110,7 +110,7 @@ async function fetchForeign(
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': UA },
-      next: { revalidate: 300 },
+      cache: 'no-store',
     });
     if (!res.ok) return { stocks: [], totalCount: 0 };
     const d = await res.json();
