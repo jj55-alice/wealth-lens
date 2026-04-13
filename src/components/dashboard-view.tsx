@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatKRW, formatChange, formatPercent } from '@/lib/format';
+import { formatKRW } from '@/lib/format';
 import { AssetList } from '@/components/asset-list';
 import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';

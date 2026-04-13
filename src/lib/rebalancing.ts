@@ -90,9 +90,6 @@ export function computeRebalancing(
     });
   }
 
-  // target 합산 검증
-  const targetSum = targets.reduce((s, t) => s + t.target_ratio, 0);
-
   const allocations: AllocationItem[] = [];
   const suggestions: RebalancingSuggestion[] = [];
   let hasStaleWarning = false;

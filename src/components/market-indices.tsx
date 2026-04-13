@@ -28,7 +28,7 @@ export function MarketIndices() {
   if (indices.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
       {indices.map((idx) => {
         const pct = parseFloat(idx.changePercent);
         const isUp = idx.direction === 'RISING';

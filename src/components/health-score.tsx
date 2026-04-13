@@ -71,8 +71,8 @@ function calculateScore(props: HealthScoreProps): ScoreBreakdown {
 
 function getScoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-500';
-  if (score >= 60) return 'text-yellow-500';
-  if (score >= 40) return 'text-orange-500';
+  if (score >= 60) return 'text-amber-500';
+  if (score >= 40) return 'text-amber-500';
   return 'text-red-500';
 }
 
@@ -105,7 +105,7 @@ export function HealthScore(props: HealthScoreProps) {
       <TooltipTrigger
         className="text-center cursor-help outline-none"
       >
-        <div className={`text-3xl font-bold ${color}`}>{breakdown.total}</div>
+        <div className={`text-2xl font-bold ${color}`}>{breakdown.total}</div>
         <div className="text-xs text-muted-foreground">재무 건강</div>
         <div className={`text-xs font-medium ${color}`}>{label}</div>
       </TooltipTrigger>

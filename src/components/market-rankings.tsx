@@ -117,7 +117,6 @@ export function MarketRankings() {
             {/* Rows */}
             <div className="divide-y divide-border/30">
               {stocks.map((stock) => {
-                const pct = parseFloat(stock.changePercent);
                 const color = stock.direction === 'RISING'
                   ? 'text-emerald-500'
                   : stock.direction === 'FALLING'
@@ -139,7 +138,7 @@ export function MarketRankings() {
                     </div>
                     <span className="w-24 text-right text-sm tabular-nums">{stock.price}</span>
                     <span className={`w-16 text-right text-sm tabular-nums ${color}`}>
-                      {pct > 0 ? '+' : ''}{stock.changePercent}%
+                      {stock.direction === 'RISING' ? '+' : ''}{stock.changePercent}%
                     </span>
                   </div>
                 );

@@ -408,21 +408,26 @@ export default function RebalancingPage() {
             disabled={checkSaving}
             onClick={async () => {
               setCheckSaving(true);
-              const maxDrift = Math.max(...(result?.suggestions.map(s => Math.abs(s.diffPercent)) ?? [0]));
-              await fetch('/api/rebalancing/history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  status,
-                  maxDrift: maxDrift.toFixed(2),
-                  suggestions: activeSuggestions,
-                  totalLiquid,
-                }),
-              });
-              // 이력 갱신
-              const res = await fetch('/api/rebalancing/history').then(r => r.json());
-              setHistory(res.history ?? []);
-              setCheckSaving(false);
+              try {
+                const drifts = result?.suggestions.map(s => Math.abs(s.diffPercent)) ?? [];
+                const maxDrift = drifts.length > 0 ? Math.max(...drifts) : 0;
+                await fetch('/api/rebalancing/history', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    status,
+                    maxDrift: maxDrift.toFixed(2),
+                    suggestions: activeSuggestions,
+                    totalLiquid,
+                  }),
+                });
+                const res = await fetch('/api/rebalancing/history').then(r => r.json());
+                setHistory(res.history ?? []);
+              } catch {
+                // silent fail
+              } finally {
+                setCheckSaving(false);
+              }
             }}
           >
             {checkSaving ? '저장 중...' : '확인 완료'}

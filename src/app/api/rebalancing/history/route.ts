@@ -26,10 +26,24 @@ export async function GET() {
   return NextResponse.json({ history: data ?? [] });
 }
 
+const VALID_STATUSES = ['balanced', 'needs_adjustment', 'urgent'];
+
 export async function POST(request: Request) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const status = VALID_STATUSES.includes(body.status) ? body.status : 'balanced';
+  const maxDrift = Number(body.maxDrift) || 0;
+  const totalLiquid = Number(body.totalLiquid) || 0;
+  const suggestions = Array.isArray(body.suggestions) ? body.suggestions : [];
 
   const admin = createAdminClient(getSupabaseUrl(), getServiceRoleKey());
   const { data: membership } = await admin
@@ -39,16 +53,14 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!membership) return NextResponse.json({ error: 'No household' }, { status: 404 });
 
-  const body = await request.json();
-
   const { error } = await admin
     .from('rebalancing_history')
     .insert({
       household_id: membership.household_id,
-      status: body.status,
-      max_drift: body.maxDrift,
-      suggestions: body.suggestions,
-      total_liquid: body.totalLiquid,
+      status,
+      max_drift: maxDrift,
+      suggestions,
+      total_liquid: totalLiquid,
       checked_at: new Date().toISOString(),
     });
 
