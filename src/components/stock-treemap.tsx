@@ -144,6 +144,7 @@ export function StockTreemap({ stocks }: Props) {
         data={data}
         dataKey="size"
         aspectRatio={4 / 3}
+        isAnimationActive={false}
         content={<CustomContent />}
       >
         <Tooltip content={<CustomTooltip />} />
