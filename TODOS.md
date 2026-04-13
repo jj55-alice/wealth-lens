@@ -1,5 +1,14 @@
 # TODOS
 
+## P2: 리밸런싱 자동 알림
+**What:** cron으로 주기적 포트폴리오 체크, 3%p 이상 편차 시 브리핑 카드 또는 푸시 알림
+**Why:** 사용자가 직접 리밸런싱 페이지에 들어가지 않아도 편차를 알 수 있어야 함. 현재는 수동 확인만 가능.
+**Context:** rebalancing_history 테이블 이미 존재. cron에서 computeRebalancing 호출 후 status가 needs_adjustment/urgent면 알림 생성. 브리핑 카드에 "리밸런싱 필요" 카드 추가하거나, households 테이블에 notification 설정 추가.
+**Effort:** M (human: ~3일 / CC: ~30분)
+**Priority:** P2
+**Depends on:** 리밸런싱 이력 저장 (완료)
+**Source:** /office-hours 2026-04-14, 리밸런싱 리뉴얼 Phase 3
+
 ## P2: 연금 충족도 점수 (v2)
 **What:** 재무건강점수에 연금 충족도 기준 추가 (현재 3개 → 4개)응
 **Why:** 나이, 은퇴 목표일, 목표 월 지출 등 추가 입력 필요. MVP에서는 과도한 복잡도.
