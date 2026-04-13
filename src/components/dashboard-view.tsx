@@ -47,6 +47,14 @@ const MonthlyChange = dynamic(
   () => import('@/components/monthly-change').then((m) => m.MonthlyChange),
   { ssr: false, loading: ChartFallback },
 );
+const MarketIndices = dynamic(
+  () => import('@/components/market-indices').then((m) => m.MarketIndices),
+  { ssr: false },
+);
+const MarketRankings = dynamic(
+  () => import('@/components/market-rankings').then((m) => m.MarketRankings),
+  { ssr: false, loading: ChartFallback },
+);
 import type { AssetWithPrice, Liability, Household } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
@@ -350,8 +358,14 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               </CardContent>
             </Card>
 
+            {/* 시장 지수 현황 */}
+            {ownerFilter === 'all' && <MarketIndices />}
+
             {/* AI 브리핑 (Phase 4) */}
             {ownerFilter === 'all' && <BriefingCards />}
+
+            {/* 시장 순위 */}
+            {ownerFilter === 'all' && <MarketRankings />}
 
             {/* Monthly Change */}
             {ownerFilter === 'all' && (
