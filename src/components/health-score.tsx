@@ -120,8 +120,8 @@ export function HealthScore(props: HealthScoreProps) {
             <span className="tabular-nums">{breakdown.diversification}/35</span>
           </div>
           <MetricBar score={breakdown.diversification} max={35} />
-          <div className="text-[10px] opacity-70">
-            {breakdown.categoryCount}개 자산군 · HHI 지수 기반 (5개 균등 = 만점)
+          <div className="text-xs opacity-70">
+            {breakdown.categoryCount}개 자산군 · HHI 기반 (5개 균등 = 만점)
           </div>
         </div>
 
@@ -131,7 +131,7 @@ export function HealthScore(props: HealthScoreProps) {
             <span className="tabular-nums">{breakdown.emergency}/35</span>
           </div>
           <MetricBar score={breakdown.emergency} max={35} />
-          <div className="text-[10px] opacity-70">
+          <div className="text-xs opacity-70">
             현금 {breakdown.emergencyMonths.toFixed(1)}개월분 · 6개월 이상 = 만점
           </div>
         </div>
@@ -142,7 +142,7 @@ export function HealthScore(props: HealthScoreProps) {
             <span className="tabular-nums">{breakdown.debt}/30</span>
           </div>
           <MetricBar score={breakdown.debt} max={30} />
-          <div className="text-[10px] opacity-70">
+          <div className="text-xs opacity-70">
             부채 {(breakdown.debtRatio * 100).toFixed(0)}% · 0% = 만점, 60%↑ = 0점
           </div>
         </div>
