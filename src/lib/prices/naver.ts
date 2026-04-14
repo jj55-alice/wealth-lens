@@ -8,7 +8,7 @@ export const naverAdapter: PriceAdapter = {
   async fetchPrice(ticker: string): Promise<PriceResult> {
     // 네이버 모바일 API: /api/stock/{ticker}/basic
     const res = await fetch(`${NAVER_STOCK_API}/${ticker}/basic`, {
-      next: { revalidate: 300 },
+      cache: 'no-store',
       headers: {
         'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
       },

@@ -5,7 +5,7 @@ const YAHOO_API = 'https://query1.finance.yahoo.com/v8/finance/chart';
 export const yahooAdapter: PriceAdapter = {
   async fetchPrice(ticker: string): Promise<PriceResult> {
     const res = await fetch(`${YAHOO_API}/${ticker}?interval=1d&range=1d`, {
-      next: { revalidate: 300 },
+      cache: 'no-store',
       headers: { 'User-Agent': 'Mozilla/5.0' },
     });
 

@@ -6,7 +6,7 @@ export const upbitAdapter: PriceAdapter = {
   async fetchPrice(ticker: string): Promise<PriceResult> {
     const market = ticker.startsWith('KRW-') ? ticker : `KRW-${ticker}`;
     const res = await fetch(`${UPBIT_API}/ticker?markets=${market}`, {
-      next: { revalidate: 300 }, // 5분 캐시
+      cache: 'no-store',
     });
 
     if (!res.ok) {
