@@ -84,7 +84,10 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
+  const [showAmounts, setShowAmounts] = useState(false);
   const { toast } = useToast();
+  const mask = '••••••';
+  const display = (v: number) => (showAmounts ? formatKRW(v) : mask);
 
   // 서버 컴포넌트에서 호출된 경우 onMutate가 없을 수 있으므로
   // router.refresh()로 폴백해서 서버 데이터를 다시 불러옴
@@ -289,10 +292,20 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{netWorthLabel}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{netWorthLabel}</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowAmounts((v) => !v)}
+                        className="text-xs rounded-md border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted/50 transition-colors"
+                        aria-label={showAmounts ? '금액 숨기기' : '금액 보기'}
+                      >
+                        {showAmounts ? '🙈 숨기기' : '👁 보기'}
+                      </button>
+                    </div>
                     <p className="text-4xl font-bold tracking-tight mt-1 transition-all duration-200">
-                      {formatKRW(netWorth)}
+                      {display(netWorth)}
                     </p>
                   </div>
                   <HealthScore
@@ -345,18 +358,18 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                   <div>
                     <p className="text-xs text-muted-foreground">총 자산</p>
                     <p className="text-lg font-semibold text-emerald-500">
-                      {formatKRW(totalAssets)}
+                      {display(totalAssets)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">총 부채</p>
                     <p className="text-lg font-semibold text-red-500">
-                      {formatKRW(totalLiabilities)}
+                      {display(totalLiabilities)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">순자산</p>
-                    <p className="text-lg font-semibold">{formatKRW(netWorth)}</p>
+                    <p className="text-lg font-semibold">{display(netWorth)}</p>
                   </div>
                 </div>
               </CardContent>
