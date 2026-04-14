@@ -167,8 +167,8 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
       const { error } = await supabase.from('assets').update(updates).eq('id', asset.id);
       if (error) throw error;
       toast('자산이 수정되었습니다', 'success');
-      router.push('/dashboard');
       router.refresh();
+      router.push('/dashboard');
     } catch {
       toast('수정에 실패했습니다', 'error');
       setSaving(false);

@@ -352,8 +352,8 @@ export default function NewAssetPage() {
       }
 
       toast('자산이 등록되었습니다', 'success');
-      router.push('/dashboard');
       router.refresh();
+      router.push('/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : '저장에 실패했습니다';
       toast(message, 'error');
