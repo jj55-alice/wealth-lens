@@ -337,7 +337,7 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                 )}
 
                 {/* 목표 달성률 */}
-                {household.goal_net_worth && household.goal_net_worth > 0 && (
+                {showAmounts && household.goal_net_worth && household.goal_net_worth > 0 && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span>목표 {formatKRW(household.goal_net_worth)}</span>
