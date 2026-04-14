@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/briefing/generate",
-      "schedule": "0 21 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
