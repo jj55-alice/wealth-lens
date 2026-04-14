@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import type { PriceSource } from '@/types/database';
 
 // Daily cron: fetch prices, create snapshots, check milestones
-// Trigger via Vercel cron (vercel.json) at 18:00 KST
+// Trigger via Vercel cron (vercel.json) at 08:55 KST — 브리핑(09:00 KST) 직전에 오늘 스냅샷 확보
 export async function GET(request: Request) {
   const cronSecret = getCronSecret();
   const authHeader = request.headers.get('authorization');
@@ -16,7 +16,8 @@ export async function GET(request: Request) {
 
   const supabaseAdmin = createClient(getSupabaseUrl(), getServiceRoleKey());
 
-  const today = new Date().toISOString().split('T')[0];
+  // KST 기준 날짜 — 브리핑/히스토리가 "한국 날짜"로 표시되므로 snapshot_date 도 KST.
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
   let pricesUpdated = 0;
   let snapshotsCreated = 0;
 

@@ -53,8 +53,8 @@ export async function POST() {
     priceMap.set(p.ticker, p.price);
   }
 
-  // 자산 스냅샷
-  const snapshotDate = new Date().toISOString().slice(0, 10);
+  // 자산 스냅샷 (KST 기준 날짜)
+  const snapshotDate = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   let totalAssets = 0;
   for (const asset of allAssets ?? []) {
     const qty = asset.quantity != null ? Number(asset.quantity) : null;
@@ -84,7 +84,7 @@ export async function POST() {
   for (const l of liabilities ?? []) {
     totalLiabilities += Number(l.balance);
     await supabaseAdmin.from('liability_snapshots').upsert(
-      { liability_id: l.id, balance: Number(l.balance), snapshot_date: new Date().toISOString().slice(0, 10) },
+      { liability_id: l.id, balance: Number(l.balance), snapshot_date: snapshotDate },
       { onConflict: 'liability_id,snapshot_date' }
     );
   }
@@ -97,12 +97,12 @@ export async function POST() {
       total_assets: totalAssets,
       total_liabilities: totalLiabilities,
       net_worth: netWorth,
-      snapshot_date: new Date().toISOString().slice(0, 10),
+      snapshot_date: snapshotDate,
     },
     { onConflict: 'household_id,snapshot_date' }
   );
 
-  return NextResponse.json({ totalAssets, totalLiabilities, netWorth, date: new Date().toISOString().slice(0, 10) });
+  return NextResponse.json({ totalAssets, totalLiabilities, netWorth, date: snapshotDate });
 }
 
 // 스냅샷 히스토리 조회
