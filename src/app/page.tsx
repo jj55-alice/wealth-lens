@@ -1,10 +1,13 @@
 import Link from 'next/link';
+import { WealthLensWordmark } from '@/components/wealth-lens-wordmark';
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
       <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">Wealth Lens</h1>
+        <h1 className="text-4xl font-bold tracking-tight">
+          <WealthLensWordmark />
+        </h1>
         <p className="mt-2 text-lg text-muted-foreground">
           우리 집 자산을 한눈에
         </p>

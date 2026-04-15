@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { WealthLensWordmark } from '@/components/wealth-lens-wordmark';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -66,7 +67,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Wealth Lens</CardTitle>
+          <CardTitle className="text-2xl">
+            <WealthLensWordmark />
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             {isSignUp ? '계정 만들기' : '로그인'}
           </p>

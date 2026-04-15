@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { WealthLensWordmark } from '@/components/wealth-lens-wordmark';
 import { formatKRW } from '@/lib/format';
 import { AssetList } from '@/components/asset-list';
 import { LiabilityList } from '@/components/liability-list';
@@ -178,7 +179,9 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Wealth Lens</h1>
+          <h1 className="text-lg font-semibold">
+            <WealthLensWordmark />
+          </h1>
           <div className="flex items-center gap-1.5 sm:gap-3">
             <Button
               variant="ghost"
