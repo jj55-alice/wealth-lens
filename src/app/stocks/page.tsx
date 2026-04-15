@@ -9,12 +9,24 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { AssetWithPrice } from '@/types/database';
 import type { DividendInfo } from '@/lib/dividends';
+import type { MonthlyDividend } from '@/lib/dividends/projection';
+
+interface DividendsResponse {
+  dividends: DividendInfo[];
+  events: unknown[];
+  projection: MonthlyDividend[];
+  summary: { annualKrw: number; monthlyAvgKrw: number };
+  exchangeRate?: number;
+}
 
 export default function StocksPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stocks, setStocks] = useState<AssetWithPrice[]>([]);
   const [dividends, setDividends] = useState<DividendInfo[]>([]);
+  const [projection, setProjection] = useState<MonthlyDividend[]>([]);
+  const [annualKrw, setAnnualKrw] = useState(0);
+  const [monthlyAvgKrw, setMonthlyAvgKrw] = useState(0);
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
 
   useEffect(() => {
@@ -110,8 +122,13 @@ export default function StocksPage() {
           fetch('/api/dividends'),
           fetch('/api/exchange-rate'),
         ]);
-        const divData = await divRes.json();
-        if (Array.isArray(divData)) setDividends(divData);
+        const divData: DividendsResponse = await divRes.json();
+        if (divData && Array.isArray(divData.dividends)) {
+          setDividends(divData.dividends);
+          setProjection(divData.projection ?? []);
+          setAnnualKrw(divData.summary?.annualKrw ?? 0);
+          setMonthlyAvgKrw(divData.summary?.monthlyAvgKrw ?? 0);
+        }
         const rateData = await rateRes.json();
         if (rateData.rate) setExchangeRate(rateData.rate);
       } catch {
@@ -176,7 +193,14 @@ export default function StocksPage() {
             </Link>
           </div>
         ) : (
-          <StockPortfolio stocks={stocks} dividends={dividends} exchangeRate={exchangeRate} />
+          <StockPortfolio
+            stocks={stocks}
+            dividends={dividends}
+            projection={projection}
+            annualKrw={annualKrw}
+            monthlyAvgKrw={monthlyAvgKrw}
+            exchangeRate={exchangeRate}
+          />
         )}
       </main>
     </div>

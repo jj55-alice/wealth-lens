@@ -8,14 +8,25 @@ import { StockTreemap } from '@/components/stock-treemap';
 import { DividendCalendar } from '@/components/dividend-calendar';
 import type { AssetWithPrice } from '@/types/database';
 import type { DividendInfo } from '@/lib/dividends';
+import type { MonthlyDividend } from '@/lib/dividends/projection';
 
 interface Props {
   stocks: AssetWithPrice[];
   dividends: DividendInfo[];
+  projection: MonthlyDividend[];
+  annualKrw: number;
+  monthlyAvgKrw: number;
   exchangeRate?: number | null;
 }
 
-export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
+export function StockPortfolio({
+  stocks,
+  dividends,
+  projection,
+  annualKrw,
+  monthlyAvgKrw,
+  exchangeRate,
+}: Props) {
   // 종목 코드(ticker)가 같은 자산은 합친다 (다른 계좌 분산 보유 케이스)
   // - quantity 합산
   // - current_value 합산
@@ -100,7 +111,13 @@ export function StockPortfolio({ stocks, dividends, exchangeRate }: Props) {
           <CardTitle className="text-sm">배당금 정보</CardTitle>
         </CardHeader>
         <CardContent>
-          <DividendCalendar stocks={mergedStocks} dividends={dividends} />
+          <DividendCalendar
+            stocks={mergedStocks}
+            dividends={dividends}
+            projection={projection}
+            annualKrw={annualKrw}
+            monthlyAvgKrw={monthlyAvgKrw}
+          />
         </CardContent>
       </Card>
     </div>
