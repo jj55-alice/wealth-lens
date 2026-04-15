@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetchPricesBatch } from '@/lib/prices';
 import { getKbPrice } from '@/lib/prices/kb';
+import { fetchDividendEvents } from '@/lib/dividends';
 import { getSupabaseUrl, getServiceRoleKey, getCronSecret } from '@/lib/env';
 import { NextResponse } from 'next/server';
 import type { PriceSource } from '@/types/database';
@@ -140,6 +141,47 @@ export async function GET(request: Request) {
     }
   }
 
+  // 2.5 Refresh dividend events (daily) — 전체 주식 자산의 고유 ticker 를 FMP/Yahoo 로 fetch 해 dividend_events 에 upsert.
+  let dividendsUpdated = 0;
+  let dividendTickersProcessed = 0;
+  if (allAssets && allAssets.length > 0) {
+    const stockItems = new Map<string, { ticker: string; source: string }>();
+    for (const a of allAssets) {
+      if (!a.ticker) continue;
+      if (a.price_source !== 'krx' && a.price_source !== 'yahoo_finance') continue;
+      stockItems.set(a.ticker, { ticker: a.ticker, source: a.price_source });
+    }
+
+    // 동시 요청 제한 (FMP rate limit 보호). 4개씩 병렬.
+    const entries = Array.from(stockItems.values());
+    const CONCURRENCY = 4;
+    for (let i = 0; i < entries.length; i += CONCURRENCY) {
+      const batch = entries.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map((e) => fetchDividendEvents(e.ticker, e.source)),
+      );
+      for (let j = 0; j < results.length; j++) {
+        dividendTickersProcessed++;
+        const r = results[j];
+        if (r.status !== 'fulfilled' || r.value.length === 0) continue;
+        const rows = r.value.map((ev) => ({
+          ticker: ev.ticker,
+          ex_date: ev.exDate,
+          payment_date: ev.paymentDate,
+          record_date: ev.recordDate,
+          amount_per_share: ev.amountPerShare,
+          currency: ev.currency,
+          source: ev.source,
+          fetched_at: new Date().toISOString(),
+        }));
+        const { error } = await supabaseAdmin
+          .from('dividend_events')
+          .upsert(rows, { onConflict: 'ticker,ex_date' });
+        if (!error) dividendsUpdated += rows.length;
+      }
+    }
+  }
+
   // 3. Update KB real estate estimated values (weekly: only on Mondays KST)
   let kbUpdated = 0;
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -175,6 +217,8 @@ export async function GET(request: Request) {
     prices_updated: pricesUpdated,
     snapshots_created: snapshotsCreated,
     kb_updated: kbUpdated,
+    dividend_events_upserted: dividendsUpdated,
+    dividend_tickers_processed: dividendTickersProcessed,
     date: today,
   });
 }

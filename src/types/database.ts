@@ -137,6 +137,21 @@ export interface DividendCache {
   payment_date: string | null;
   frequency: 'quarterly' | 'semi_annual' | 'annual' | null;
   fetched_at: string;
+  dividend_yield: number | null;
+  currency: 'KRW' | 'USD';
+  announcement_date: string | null;
+  source: string | null;
+}
+
+export interface DividendEventRow {
+  ticker: string;
+  ex_date: string;
+  payment_date: string | null;
+  record_date: string | null;
+  amount_per_share: number;
+  currency: 'KRW' | 'USD';
+  source: string | null;
+  fetched_at: string;
 }
 
 // Computed types for the dashboard
