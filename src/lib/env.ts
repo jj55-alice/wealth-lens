@@ -24,3 +24,7 @@ export function getServiceRoleKey(): string {
 export function getCronSecret(): string {
   return requireEnv('CRON_SECRET');
 }
+
+export function getFmpApiKey(): string | null {
+  return process.env.FMP_API_KEY ?? null;
+}
