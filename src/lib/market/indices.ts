@@ -15,7 +15,11 @@ async function fetchNaverIndex(code: string): Promise<IndexData | null> {
   try {
     const res = await fetch(
       `https://m.stock.naver.com/api/index/${code}/basic`,
-      { headers: { 'User-Agent': UA }, next: { revalidate: 300 } },
+      {
+        headers: { 'User-Agent': UA },
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5000),
+      },
     );
     if (!res.ok) return null;
     const d = await res.json();
@@ -43,7 +47,11 @@ async function fetchYahooIndex(
   try {
     const res = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
-      { headers: { 'User-Agent': UA }, next: { revalidate: 300 } },
+      {
+        headers: { 'User-Agent': UA },
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5000),
+      },
     );
     if (!res.ok) return null;
     const d = await res.json();
