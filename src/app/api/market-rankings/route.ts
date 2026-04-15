@@ -15,7 +15,8 @@ export async function GET(request: Request) {
   const sort: RankingSort = VALID_SORTS.includes(rawSort as RankingSort)
     ? (rawSort as RankingSort) : 'marketCap';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
+  const refresh = searchParams.get('refresh') === '1';
 
-  const data = await fetchRankings(market, sort, page, 20);
+  const data = await fetchRankings(market, sort, page, 20, refresh);
   return NextResponse.json(data);
 }

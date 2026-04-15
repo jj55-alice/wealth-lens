@@ -1,19 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { IndexData } from '@/lib/market/indices';
 
-export function MarketIndices() {
+interface Props {
+  /** 값이 바뀌면 강제 새로고침 (cache: 'no-store'). */
+  refreshSignal?: number;
+}
+
+export function MarketIndices({ refreshSignal }: Props = {}) {
   const [indices, setIndices] = useState<IndexData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/market-indices')
+  const load = useCallback((noStore: boolean) => {
+    fetch('/api/market-indices', noStore ? { cache: 'no-store' } : undefined)
       .then((r) => r.json())
       .then((data) => setIndices(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load(false);
+  }, [load]);
+
+  useEffect(() => {
+    if (refreshSignal === undefined || refreshSignal === 0) return;
+    load(true);
+  }, [refreshSignal, load]);
 
   if (loading) {
     return (
@@ -30,7 +44,6 @@ export function MarketIndices() {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
       {indices.map((idx) => {
-        const pct = parseFloat(idx.changePercent);
         const isUp = idx.direction === 'RISING';
         const isDown = idx.direction === 'FALLING';
         const color = isUp

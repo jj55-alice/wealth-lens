@@ -39,6 +39,7 @@ async function fetchDomestic(
   sort: RankingSort,
   page: number,
   pageSize: number,
+  bypassCache: boolean,
 ): Promise<{ stocks: RankingStock[]; totalCount: number }> {
   const endpoint = NAVER_SORT[sort];
   const url = `https://m.stock.naver.com/api/stocks/${endpoint}/KOSPI?page=${page}&pageSize=${pageSize}`;
@@ -46,7 +47,7 @@ async function fetchDomestic(
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': UA },
-      next: { revalidate: 300 },
+      ...(bypassCache ? { cache: 'no-store' as const } : { next: { revalidate: 300 } }),
     });
     if (!res.ok) return { stocks: [], totalCount: 0 };
     const d = await res.json();
@@ -112,11 +113,18 @@ function parsePct(v: number | string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-async function fmpQuote(symbol: string, apiKey: string): Promise<FmpQuote | null> {
+async function fmpQuote(
+  symbol: string,
+  apiKey: string,
+  bypassCache: boolean,
+): Promise<FmpQuote | null> {
   try {
     const res = await fetch(
       `${FMP_BASE}/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`,
-      { next: { revalidate: 3600 } },
+      bypassCache
+        ? { cache: 'no-store' }
+        // 5분 캐시 — 국내(Naver)와 동일. 1시간은 장중/overnight 변동을 놓침.
+        : { next: { revalidate: 300 } },
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -131,9 +139,10 @@ async function fetchForeignFmpMarketCap(
   page: number,
   pageSize: number,
   apiKey: string,
+  bypassCache: boolean,
 ): Promise<{ stocks: RankingStock[]; totalCount: number } | null> {
   const quotes = await Promise.all(
-    MEGA_CAP_UNIVERSE.map((s) => fmpQuote(s, apiKey)),
+    MEGA_CAP_UNIVERSE.map((s) => fmpQuote(s, apiKey, bypassCache)),
   );
   const valid = quotes.filter((q): q is FmpQuote => q != null && (q.marketCap ?? 0) > 0);
   if (valid.length === 0) return null;
@@ -170,15 +179,17 @@ async function fetchForeignFmpMover(
   page: number,
   pageSize: number,
   apiKey: string,
+  bypassCache: boolean,
 ): Promise<{ stocks: RankingStock[]; totalCount: number } | null> {
   const endpoint =
     sort === 'tradingValue' ? 'most-actives'
     : sort === 'gainers' ? 'biggest-gainers'
     : 'biggest-losers';
   try {
-    const res = await fetch(`${FMP_BASE}/${endpoint}?apikey=${apiKey}`, {
-      next: { revalidate: 3600 },
-    });
+    const res = await fetch(
+      `${FMP_BASE}/${endpoint}?apikey=${apiKey}`,
+      bypassCache ? { cache: 'no-store' } : { next: { revalidate: 300 } },
+    );
     if (!res.ok) return null;
     const data = await res.json();
     if (!Array.isArray(data)) return null;
@@ -216,11 +227,12 @@ async function fetchForeignFmp(
   page: number,
   pageSize: number,
   apiKey: string,
+  bypassCache: boolean,
 ): Promise<{ stocks: RankingStock[]; totalCount: number } | null> {
   if (sort === 'marketCap') {
-    return fetchForeignFmpMarketCap(page, pageSize, apiKey);
+    return fetchForeignFmpMarketCap(page, pageSize, apiKey, bypassCache);
   }
-  return fetchForeignFmpMover(sort, page, pageSize, apiKey);
+  return fetchForeignFmpMover(sort, page, pageSize, apiKey, bypassCache);
 }
 
 // ─── 해외 Yahoo fallback ───
@@ -302,13 +314,14 @@ export async function fetchRankings(
   sort: RankingSort,
   page: number = 1,
   pageSize: number = 20,
-): Promise<{ stocks: RankingStock[]; totalCount: number; hasMore: boolean }> {
+  bypassCache: boolean = false,
+): Promise<{ stocks: RankingStock[]; totalCount: number; hasMore: boolean; fetchedAt: string }> {
   let result: { stocks: RankingStock[]; totalCount: number };
   if (market === 'domestic') {
-    result = await fetchDomestic(sort, page, pageSize);
+    result = await fetchDomestic(sort, page, pageSize, bypassCache);
   } else {
     const key = getFmpApiKey();
-    const fmp = key ? await fetchForeignFmp(sort, page, pageSize, key) : null;
+    const fmp = key ? await fetchForeignFmp(sort, page, pageSize, key, bypassCache) : null;
     result = fmp ?? (await fetchForeign(sort, page, pageSize));
   }
 
@@ -316,5 +329,6 @@ export async function fetchRankings(
   return {
     ...result,
     hasMore: endRank < result.totalCount,
+    fetchedAt: new Date().toISOString(),
   };
 }

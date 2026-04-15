@@ -17,7 +17,12 @@ const SORT_TABS: { key: RankingSort; label: string }[] = [
   { key: 'losers', label: '하락률' },
 ];
 
-export function MarketRankings() {
+interface MarketRankingsProps {
+  /** 값이 바뀌면 강제 새로고침 (부모의 ↻ 시세 버튼과 연동). */
+  refreshSignal?: number;
+}
+
+export function MarketRankings({ refreshSignal }: MarketRankingsProps = {}) {
   const [market, setMarket] = useState<RankingMarket>('domestic');
   const [sort, setSort] = useState<RankingSort>('marketCap');
   const [stocks, setStocks] = useState<RankingStock[]>([]);
@@ -25,28 +30,56 @@ export function MarketRankings() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
 
-  const load = useCallback(async (m: RankingMarket, s: RankingSort, p: number, append: boolean) => {
-    if (append) setLoadingMore(true);
-    else setLoading(true);
+  const load = useCallback(
+    async (
+      m: RankingMarket,
+      s: RankingSort,
+      p: number,
+      append: boolean,
+      refresh: boolean = false,
+    ) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
 
-    try {
-      const res = await fetch(`/api/market-rankings?market=${m}&sort=${s}&page=${p}`);
-      const data = await res.json();
-      setStocks((prev) => append ? [...prev, ...data.stocks] : data.stocks);
-      setHasMore(data.hasMore);
-      setPage(p);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
+      try {
+        const params = new URLSearchParams({
+          market: m,
+          sort: s,
+          page: String(p),
+        });
+        if (refresh) params.set('refresh', '1');
+        const res = await fetch(
+          `/api/market-rankings?${params.toString()}`,
+          refresh ? { cache: 'no-store' } : undefined,
+        );
+        const data = await res.json();
+        setStocks((prev) => (append ? [...prev, ...data.stocks] : data.stocks));
+        setHasMore(data.hasMore);
+        setPage(p);
+        if (data.fetchedAt) setFetchedAt(data.fetchedAt);
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     load(market, sort, 1, false);
   }, [market, sort, load]);
+
+  // 부모의 새로고침 버튼과 연동
+  useEffect(() => {
+    if (refreshSignal === undefined || refreshSignal === 0) return;
+    load(market, sort, 1, false, true);
+    // market/sort가 바뀔 때는 위 effect가 잡음 — 여기선 signal만 추적
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
   function handleMarketChange(m: RankingMarket) {
     setMarket(m);
@@ -62,7 +95,25 @@ export function MarketRankings() {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">시장 순위</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-sm">시장 순위</CardTitle>
+            <button
+              onClick={() => load(market, sort, 1, false, true)}
+              disabled={loading}
+              className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
+              title="최신 시세로 새로고침"
+            >
+              {loading ? '갱신 중...' : '↻'}
+            </button>
+            {fetchedAt && !loading && (
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                {new Date(fetchedAt).toLocaleTimeString('ko-KR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            )}
+          </div>
           <div className="flex gap-1">
             {MARKET_TABS.map((tab) => (
               <button

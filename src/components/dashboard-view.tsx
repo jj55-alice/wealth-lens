@@ -84,6 +84,7 @@ interface Props {
 export function DashboardView({ household, assets, liabilities, exchangeRate, currentUserId, members = [], monthlyGrowth, onMutate }: Props) {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const [showAmounts, setShowAmounts] = useState(false);
   const { toast } = useToast();
@@ -135,6 +136,8 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
       const res = await fetch('/api/prices', { method: 'POST' });
       if (!res.ok) throw new Error();
       await refreshData();
+      // 시장 순위/지수 하위 컴포넌트도 강제 재조회
+      setRefreshCounter((c) => c + 1);
       toast(syncOk ? '업비트 잔고와 시세가 갱신되었습니다' : '시세가 갱신되었습니다', 'success');
     } catch {
       toast('시세 갱신에 실패했습니다', 'error');
@@ -379,13 +382,13 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             </Card>
 
             {/* 시장 지수 현황 */}
-            {ownerFilter === 'all' && <MarketIndices />}
+            {ownerFilter === 'all' && <MarketIndices refreshSignal={refreshCounter} />}
 
             {/* AI 브리핑 (Phase 4) */}
             {ownerFilter === 'all' && <BriefingCards />}
 
             {/* 시장 순위 */}
-            {ownerFilter === 'all' && <MarketRankings />}
+            {ownerFilter === 'all' && <MarketRankings refreshSignal={refreshCounter} />}
 
             {/* Monthly Change */}
             {ownerFilter === 'all' && (
