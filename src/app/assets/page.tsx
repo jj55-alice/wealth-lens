@@ -6,6 +6,7 @@ import { AssetsView } from '@/components/assets-view';
 import {
   getUserHousehold,
   getHouseholdAssets,
+  getHouseholdLiabilities,
   getHouseholdMembers,
 } from '@/lib/queries';
 import { getUsdKrwRate } from '@/lib/prices/bok';
@@ -30,8 +31,9 @@ export default async function AssetsPage() {
   // (가구 공동 자산목록에서도 배우자 계좌와 매칭 필요)
   const admin = createAdminClient(getSupabaseUrl(), getServiceRoleKey());
 
-  const [assets, members, accountsRes] = await Promise.all([
+  const [assets, liabilities, members, accountsRes] = await Promise.all([
     getHouseholdAssets(supabase, household.id),
+    getHouseholdLiabilities(supabase, household.id),
     getHouseholdMembers(household.id),
     admin
       .from('household_accounts')
@@ -52,6 +54,7 @@ export default async function AssetsPage() {
   return (
     <AssetsView
       assets={assets}
+      liabilities={liabilities}
       exchangeRate={exchangeRate}
       currentUserId={user.id}
       members={members}

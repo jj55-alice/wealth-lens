@@ -58,7 +58,7 @@ function findNearestSnapshotAsc(
 }
 
 const PERIODS: { label: string; days: number }[] = [
-  { label: '1일 전 대비', days: 1 },
+  { label: '1주일 전 대비', days: 7 },
   { label: '1달 전 대비', days: 30 },
   { label: '3달 전 대비', days: 90 },
   { label: '6달 전 대비', days: 180 },

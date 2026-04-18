@@ -4,12 +4,12 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { AssetList, type AccountEntry } from '@/components/asset-list';
+import { LiabilityList } from '@/components/liability-list';
 import { formatKRW } from '@/lib/format';
-import type { AssetWithPrice } from '@/types/database';
+import type { AssetWithPrice, Liability } from '@/types/database';
 
 type OwnerFilter = 'all' | 'mine' | 'spouse' | 'shared';
 
@@ -21,6 +21,7 @@ interface MemberInfo {
 
 interface Props {
   assets: AssetWithPrice[];
+  liabilities: Liability[];
   exchangeRate?: number | null;
   currentUserId?: string;
   members?: MemberInfo[];
@@ -29,6 +30,7 @@ interface Props {
 
 export function AssetsView({
   assets,
+  liabilities,
   exchangeRate,
   currentUserId,
   members = [],
@@ -56,7 +58,22 @@ export function AssetsView({
     return assets;
   }, [assets, ownerFilter, currentUserId]);
 
+  const filteredLiabilities = useMemo(() => {
+    if (ownerFilter === 'all') return liabilities;
+    if (ownerFilter === 'mine')
+      return liabilities.filter(
+        (l) => l.owner_user_id === currentUserId && l.ownership === 'personal',
+      );
+    if (ownerFilter === 'spouse')
+      return liabilities.filter(
+        (l) => l.owner_user_id !== currentUserId && l.ownership === 'personal',
+      );
+    if (ownerFilter === 'shared') return liabilities.filter((l) => l.ownership === 'shared');
+    return liabilities;
+  }, [liabilities, ownerFilter, currentUserId]);
+
   const totalAssets = filteredAssets.reduce((s, a) => s + a.current_value, 0);
+  const totalLiabilities = filteredLiabilities.reduce((s, l) => s + l.balance, 0);
   const missingPurchasePriceStocks = assets.filter(
     (a) => a.category === 'stock' && (!a.purchase_price || a.purchase_price <= 0),
   );
@@ -87,7 +104,7 @@ export function AssetsView({
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8 space-y-6">
-        {assets.length === 0 ? (
+        {assets.length === 0 && liabilities.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center">
               <p className="text-4xl mb-4">📋</p>
@@ -188,6 +205,31 @@ export function AssetsView({
                   groupBy="accountType"
                   accounts={accounts}
                 />
+              </CardContent>
+            </Card>
+
+            {/* 부채 목록 */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">부채</CardTitle>
+                  {filteredLiabilities.length > 0 && (
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {formatKRW(totalLiabilities)}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredLiabilities.length > 0 ? (
+                  <LiabilityList liabilities={filteredLiabilities} onMutate={refreshData} />
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    {ownerFilter === 'all'
+                      ? '등록된 부채가 없습니다'
+                      : '해당 소유자의 부채가 없습니다'}
+                  </p>
+                )}
               </CardContent>
             </Card>
           </>

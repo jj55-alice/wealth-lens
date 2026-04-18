@@ -12,7 +12,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WealthLensWordmark } from '@/components/wealth-lens-wordmark';
 import { formatKRW } from '@/lib/format';
-import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';
 import { LeaseAlerts } from '@/components/lease-alerts';
 import { HouseholdMembers } from '@/components/household-members';
@@ -491,21 +490,6 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               </CardContent>
             </Card>
 
-            {/* Liabilities */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">부채</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {filteredLiabilities.length > 0 ? (
-                  <LiabilityList liabilities={filteredLiabilities} onMutate={refreshData} />
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {ownerFilter === 'all' ? '등록된 부채가 없습니다' : '해당 소유자의 부채가 없습니다'}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
           </>
         )}
       </main>
