@@ -113,6 +113,106 @@ export async function POST(request: Request) {
   return NextResponse.json({ account: data });
 }
 
+// PATCH: ?id=xxx — 계좌 수정 (brokerage/alias/account_type).
+// body: { brokerage?, alias?, account_type? } — 제공된 필드만 업데이트.
+// 매칭되는 기존 자산의 brokerage/account_alias/subcategory 도 동시에 동기화
+// (계좌는 assets 와 FK 없이 텍스트 매칭이라 수동 sync 필요).
+export async function PATCH(request: Request) {
+  const ctx = await getAuthedUserAndHousehold();
+  if ('error' in ctx) return ctx.error;
+  const { householdId, admin } = ctx;
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'id 필요' }, { status: 400 });
+
+  const body = await request.json();
+  const updates: { brokerage?: string; alias?: string; account_type?: string } = {};
+
+  if (typeof body.brokerage === 'string') {
+    const v = body.brokerage.trim();
+    if (!v || v.length > 50) {
+      return NextResponse.json({ error: '금융사는 1-50자여야 합니다' }, { status: 400 });
+    }
+    updates.brokerage = v;
+  }
+  if (typeof body.alias === 'string') {
+    const v = body.alias.trim();
+    if (!v || v.length > 50) {
+      return NextResponse.json({ error: '별칭은 1-50자여야 합니다' }, { status: 400 });
+    }
+    updates.alias = v;
+  }
+  if (typeof body.account_type === 'string') {
+    const VALID_TYPES = ['pension', 'isa', 'irp', 'espp', 'other'];
+    if (!VALID_TYPES.includes(body.account_type)) {
+      return NextResponse.json({ error: '잘못된 계좌 유형입니다' }, { status: 400 });
+    }
+    updates.account_type = body.account_type;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: '변경할 필드가 없습니다' }, { status: 400 });
+  }
+
+  // 수정 전 원본 읽기 (자산 동기화 시 old brokerage/alias 매칭용)
+  const { data: original } = await admin
+    .from('household_accounts')
+    .select('id, household_id, user_id, brokerage, alias, account_type')
+    .eq('id', id)
+    .maybeSingle();
+  if (!original || original.household_id !== householdId) {
+    return NextResponse.json({ error: '권한 없음' }, { status: 403 });
+  }
+
+  // 계좌 update
+  const { data: updated, error: updateError } = await admin
+    .from('household_accounts')
+    .update(updates)
+    .eq('id', id)
+    .select('id, brokerage, alias, account_type, user_id')
+    .single();
+
+  if (updateError) {
+    if (updateError.code === '23505') {
+      return NextResponse.json({ error: '이미 같은 금융사·별칭 계좌가 있습니다' }, { status: 409 });
+    }
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  // 자산 동기화: 원본 (user_id, brokerage, alias)로 매칭되는 자산의
+  // brokerage/account_alias/subcategory 를 새 값으로 업데이트.
+  // 매칭 튜플이 바뀌는 경우와 account_type 만 바뀌는 경우 모두 처리.
+  const assetUpdates: { brokerage?: string; account_alias?: string; subcategory?: string } = {};
+  if (updates.brokerage) assetUpdates.brokerage = updates.brokerage;
+  if (updates.alias) assetUpdates.account_alias = updates.alias;
+  if (updates.account_type) assetUpdates.subcategory = updates.account_type;
+
+  let syncedAssets = 0;
+  if (Object.keys(assetUpdates).length > 0) {
+    const { data: synced, error: syncError } = await admin
+      .from('assets')
+      .update(assetUpdates)
+      .eq('household_id', householdId)
+      .eq('owner_user_id', original.user_id)
+      .eq('category', 'stock')
+      .eq('brokerage', original.brokerage)
+      .eq('account_alias', original.alias)
+      .select('id');
+    if (syncError) {
+      // 계좌는 이미 업데이트됨. 자산 sync 실패는 warning 으로 반환 (계좌 복구 X).
+      return NextResponse.json({
+        account: updated,
+        syncedAssets: 0,
+        warning: `자산 동기화 실패: ${syncError.message}`,
+      });
+    }
+    syncedAssets = synced?.length ?? 0;
+  }
+
+  return NextResponse.json({ account: updated, syncedAssets });
+}
+
 // DELETE: ?id=xxx — 본인 가구의 계좌만 삭제 가능
 export async function DELETE(request: Request) {
   const ctx = await getAuthedUserAndHousehold();

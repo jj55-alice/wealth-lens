@@ -713,6 +713,12 @@ function AccountManagementSection() {
   const [accountType, setAccountType] = useState<AccountType>('other');
   const [adding, setAdding] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null);
+  // 수정 다이얼로그 상태 — editTarget 이 있으면 다이얼로그 open
+  const [editTarget, setEditTarget] = useState<UserAccount | null>(null);
+  const [editBrokerage, setEditBrokerage] = useState('');
+  const [editAlias, setEditAlias] = useState('');
+  const [editAccountType, setEditAccountType] = useState<AccountType>('other');
+  const [editing, setEditing] = useState(false);
   const { toast } = useToast();
 
   async function load() {
@@ -796,6 +802,57 @@ function AccountManagementSection() {
     }
   }
 
+  function openEdit(acc: UserAccount) {
+    setEditTarget(acc);
+    setEditBrokerage(acc.brokerage);
+    setEditAlias(acc.alias);
+    setEditAccountType(acc.account_type);
+  }
+
+  async function confirmEdit() {
+    if (!editTarget) return;
+    const trimmedAlias = editAlias.trim();
+    if (!editBrokerage || !trimmedAlias) {
+      toast('금융사와 별칭을 모두 입력해주세요', 'error');
+      return;
+    }
+    // 변경점이 없으면 그냥 닫기
+    if (
+      editBrokerage === editTarget.brokerage &&
+      trimmedAlias === editTarget.alias &&
+      editAccountType === editTarget.account_type
+    ) {
+      setEditTarget(null);
+      return;
+    }
+    setEditing(true);
+    try {
+      const res = await fetch(`/api/accounts?id=${editTarget.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brokerage: editBrokerage,
+          alias: trimmedAlias,
+          account_type: editAccountType,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || '수정 실패', 'error');
+      } else {
+        setAccounts(accounts.map(a => (a.id === editTarget.id ? data.account : a)));
+        setEditTarget(null);
+        const syncedMsg = data.syncedAssets > 0
+          ? ` (자산 ${data.syncedAssets}건 동기화)`
+          : '';
+        toast(`계좌가 수정되었습니다${syncedMsg}`, 'success');
+      }
+    } catch {
+      toast('네트워크 오류', 'error');
+    }
+    setEditing(false);
+  }
+
   // 멤버별로 그룹핑 (현재 사용자 먼저)
   const groupedAccounts = (() => {
     const groups = new Map<string, UserAccount[]>();
@@ -856,15 +913,26 @@ function AccountManagementSection() {
                           {ACCOUNT_TYPE_LABEL[acc.account_type] ?? '일반'}
                         </span>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteTarget(acc)}
-                        className="h-7 text-xs px-2 text-red-500 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                      >
-                        삭제
-                      </Button>
+                      <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(acc)}
+                          className="h-7 text-xs px-2"
+                        >
+                          수정
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteTarget(acc)}
+                          className="h-7 text-xs px-2 text-red-500 hover:text-red-600"
+                        >
+                          삭제
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -952,6 +1020,63 @@ function AccountManagementSection() {
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
               삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 수정 다이얼로그 */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && !editing && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>계좌 수정</DialogTitle>
+            <DialogDescription>
+              이 계좌로 등록된 주식 자산도 함께 동기화됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">금융사</Label>
+              <Select value={editBrokerage} onValueChange={(v) => v && setEditBrokerage(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="금융사" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_BROKERAGES.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">별칭</Label>
+              <Input
+                placeholder="별칭 (예: 메인, ISA)"
+                value={editAlias}
+                onChange={(e) => setEditAlias(e.target.value)}
+                maxLength={50}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">계좌 유형</Label>
+              <Select value={editAccountType} onValueChange={(v) => v && setEditAccountType(v as AccountType)}>
+                <SelectTrigger>
+                  <SelectValue>{ACCOUNT_TYPE_LABEL[editAccountType]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editing}>
+              취소
+            </Button>
+            <Button onClick={confirmEdit} disabled={editing}>
+              {editing ? '저장 중...' : '저장'}
             </Button>
           </DialogFooter>
         </DialogContent>
