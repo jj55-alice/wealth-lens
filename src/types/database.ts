@@ -121,6 +121,18 @@ export interface LiabilitySnapshot {
   snapshot_date: string;
 }
 
+export type HouseholdAccountType = 'pension' | 'isa' | 'irp' | 'espp' | 'other';
+
+export interface HouseholdAccount {
+  id: string;
+  household_id: string;
+  user_id: string;
+  brokerage: string;
+  alias: string;
+  account_type: HouseholdAccountType;
+  created_at: string;
+}
+
 export interface HouseholdSnapshot {
   id: string;
   household_id: string;

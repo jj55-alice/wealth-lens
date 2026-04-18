@@ -61,7 +61,8 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
   const [accountAlias, setAccountAlias] = useState('');
 
   // 사용자 등록 계좌 (퀵픽) — 가구 전체를 한 번에 가져와서 owner로 필터
-  const [allAccounts, setAllAccounts] = useState<{ id: string; brokerage: string; alias: string; user_id: string }[]>([]);
+  // account_type 은 계좌 레벨 속성. 저장 시 선택된 계좌의 account_type 을 subcategory 로 복사.
+  const [allAccounts, setAllAccounts] = useState<{ id: string; brokerage: string; alias: string; account_type: string; user_id: string }[]>([]);
   useEffect(() => {
     fetch('/api/accounts?owner=all', { cache: 'no-store' })
       .then(r => r.json())
@@ -142,12 +143,21 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
           updates.lease_expiry = leaseExpiry || null;
           updates.kb_complex_id = kbComplexId || null;
           break;
-        case 'stock':
+        case 'stock': {
           updates.quantity = Number(quantity) || 0;
           updates.purchase_price = purchasePrice ? Number(purchasePrice) : null;
           updates.brokerage = brokerage || null;
           updates.account_alias = accountAlias || null;
+          // 선택된 내 계좌의 account_type 을 subcategory 로 복사 (없으면 null)
+          const matched = allAccounts.find(
+            (a) =>
+              a.user_id === ownerUserId &&
+              a.brokerage === brokerage &&
+              a.alias === accountAlias,
+          );
+          updates.subcategory = matched?.account_type ?? null;
           break;
+        }
         case 'pension':
         case 'cash':
           updates.manual_value = Number(manualValue) || 0;
@@ -384,6 +394,9 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
                   <div className="flex flex-wrap gap-1.5">
                     {userAccounts.map((acc) => {
                       const isActive = brokerage === acc.brokerage && accountAlias === acc.alias;
+                      const typeLabel = (
+                        { pension: '연금저축', isa: 'ISA', irp: 'IRP', espp: '우리사주', other: '일반' } as const
+                      )[acc.account_type as 'pension' | 'isa' | 'irp' | 'espp' | 'other'] ?? '일반';
                       return (
                         <button
                           key={acc.id}
@@ -399,6 +412,9 @@ export default function EditAssetPage({ params }: { params: Promise<{ id: string
                           }`}
                         >
                           {acc.brokerage} · {acc.alias}
+                          <span className={`ml-1.5 text-[10px] px-1 rounded ${isActive ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
+                            {typeLabel}
+                          </span>
                         </button>
                       );
                     })}

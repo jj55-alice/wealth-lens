@@ -39,14 +39,6 @@ const BROKERAGES = [
   '삼성증권', '미래에셋증권', 'NH투자증권', '업비트', '빗썸', '기타',
 ];
 
-const STOCK_ACCOUNT_TYPES = [
-  { value: 'pension', label: '연금저축' },
-  { value: 'isa', label: 'ISA' },
-  { value: 'irp', label: 'IRP' },
-  { value: 'espp', label: '우리사주' },
-  { value: 'other', label: '일반' },
-];
-
 const REAL_ESTATE_TYPES = [
   { value: 'owned', label: '소유 (매매)' },
   { value: 'jeonse', label: '전세' },
@@ -108,11 +100,11 @@ export default function NewAssetPage() {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseCurrency, setPurchaseCurrency] = useState<'KRW' | 'USD'>('KRW');
   const [quantity, setQuantity] = useState('');
-  const [accountType, setAccountType] = useState('other');
   const [accountAlias, setAccountAlias] = useState('');
 
   // 사용자 등록 계좌 (퀵픽) — 가구 전체를 한 번에 가져와서 클라이언트에서 owner로 필터
-  const [allAccounts, setAllAccounts] = useState<{ id: string; brokerage: string; alias: string; user_id: string }[]>([]);
+  // account_type 은 계좌 레벨 속성. 자산 등록 시 선택된 계좌의 account_type 을 subcategory 로 복사.
+  const [allAccounts, setAllAccounts] = useState<{ id: string; brokerage: string; alias: string; account_type: string; user_id: string }[]>([]);
   useEffect(() => {
     fetch('/api/accounts?owner=all', { cache: 'no-store' })
       .then(r => r.json())
@@ -212,7 +204,17 @@ export default function NewAssetPage() {
               }
               assetData.purchase_price = pp;
             }
-            assetData.subcategory = accountType;
+            // subcategory 는 선택된 내 계좌의 account_type 을 복사.
+            // 수동 입력(brokerage+alias)이면 매칭 시도 → 없으면 null.
+            {
+              const matched = allAccounts.find(
+                (a) =>
+                  a.user_id === (ownerUserId || user.id) &&
+                  a.brokerage === brokerage &&
+                  a.alias === accountAlias,
+              );
+              assetData.subcategory = matched?.account_type ?? null;
+            }
             assetData.brokerage = brokerage || null;
             assetData.account_alias = accountAlias || null;
             assetData.price_source = stockPriceSource;
@@ -663,6 +665,9 @@ export default function NewAssetPage() {
                   <div className="flex flex-wrap gap-1.5">
                     {userAccounts.map((acc) => {
                       const isActive = brokerage === acc.brokerage && accountAlias === acc.alias;
+                      const typeLabel = (
+                        { pension: '연금저축', isa: 'ISA', irp: 'IRP', espp: '우리사주', other: '일반' } as const
+                      )[acc.account_type as 'pension' | 'isa' | 'irp' | 'espp' | 'other'] ?? '일반';
                       return (
                         <button
                           key={acc.id}
@@ -678,6 +683,9 @@ export default function NewAssetPage() {
                           }`}
                         >
                           {acc.brokerage} · {acc.alias}
+                          <span className={`ml-1.5 text-[10px] px-1 rounded ${isActive ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
+                            {typeLabel}
+                          </span>
                         </button>
                       );
                     })}
@@ -706,17 +714,9 @@ export default function NewAssetPage() {
                   onChange={(e) => setAccountAlias(e.target.value)}
                   maxLength={50}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>계좌 유형</Label>
-                <Select value={accountType} onValueChange={(v) => v && setAccountType(v)}>
-                  <SelectTrigger><SelectValue>{STOCK_ACCOUNT_TYPES.find(t => t.value === accountType)?.label ?? accountType}</SelectValue></SelectTrigger>
-                  <SelectContent>
-                    {STOCK_ACCOUNT_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <p className="text-xs text-muted-foreground">
+                  계좌 유형(연금저축/ISA/IRP/우리사주/일반)은 설정 → 주식 계좌 관리에서 계좌별로 지정합니다.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>종목 검색</Label>

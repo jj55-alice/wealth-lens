@@ -670,10 +670,29 @@ const ACCOUNT_BROKERAGES = [
   '삼성증권', '미래에셋증권', 'NH투자증권', '기타',
 ];
 
+type AccountType = 'pension' | 'isa' | 'irp' | 'espp' | 'other';
+
+const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
+  { value: 'other', label: '일반' },
+  { value: 'isa', label: 'ISA' },
+  { value: 'pension', label: '연금저축' },
+  { value: 'irp', label: 'IRP' },
+  { value: 'espp', label: '우리사주' },
+];
+
+const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
+  other: '일반',
+  isa: 'ISA',
+  pension: '연금저축',
+  irp: 'IRP',
+  espp: '우리사주',
+};
+
 interface UserAccount {
   id: string;
   brokerage: string;
   alias: string;
+  account_type: AccountType;
   user_id: string;
 }
 
@@ -691,6 +710,7 @@ function AccountManagementSection() {
   const [targetUserId, setTargetUserId] = useState('');
   const [brokerage, setBrokerage] = useState('');
   const [alias, setAlias] = useState('');
+  const [accountType, setAccountType] = useState<AccountType>('other');
   const [adding, setAdding] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null);
   const { toast } = useToast();
@@ -744,6 +764,7 @@ function AccountManagementSection() {
         body: JSON.stringify({
           brokerage,
           alias: alias.trim(),
+          account_type: accountType,
           user_id: targetUserId || currentUserId,
         }),
       });
@@ -754,6 +775,7 @@ function AccountManagementSection() {
         setAccounts([...accounts, data.account]);
         setBrokerage('');
         setAlias('');
+        setAccountType('other');
         toast('계좌가 추가되었습니다', 'success');
       }
     } catch {
@@ -827,9 +849,12 @@ function AccountManagementSection() {
                       key={acc.id}
                       className="group flex items-center justify-between rounded-lg border border-border px-3 py-2"
                     >
-                      <div className="text-sm">
+                      <div className="text-sm flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{acc.brokerage}</span>
-                        <span className="text-muted-foreground"> · {acc.alias}</span>
+                        <span className="text-muted-foreground">· {acc.alias}</span>
+                        <span className="text-[10px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5">
+                          {ACCOUNT_TYPE_LABEL[acc.account_type] ?? '일반'}
+                        </span>
                       </div>
                       <Button
                         type="button"
@@ -885,6 +910,19 @@ function AccountManagementSection() {
               onChange={(e) => setAlias(e.target.value)}
               maxLength={50}
             />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">계좌 유형</Label>
+            <Select value={accountType} onValueChange={(v) => v && setAccountType(v as AccountType)}>
+              <SelectTrigger>
+                <SelectValue>{ACCOUNT_TYPE_LABEL[accountType]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ACCOUNT_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <Button
             type="button"

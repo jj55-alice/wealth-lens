@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from('household_accounts')
-    .select('id, brokerage, alias, user_id')
+    .select('id, brokerage, alias, account_type, user_id')
     .eq('household_id', householdId)
     .order('brokerage')
     .order('alias');
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const brokerage = (body.brokerage ?? '').toString().trim();
   const alias = (body.alias ?? '').toString().trim();
+  const accountType = (body.account_type ?? 'other').toString();
   const targetUserId = (body.user_id ?? user.id).toString();
 
   if (!brokerage || !alias) {
@@ -73,6 +74,10 @@ export async function POST(request: Request) {
   }
   if (brokerage.length > 50 || alias.length > 50) {
     return NextResponse.json({ error: '50자 이내로 입력해주세요' }, { status: 400 });
+  }
+  const VALID_TYPES = ['pension', 'isa', 'irp', 'espp', 'other'];
+  if (!VALID_TYPES.includes(accountType)) {
+    return NextResponse.json({ error: '잘못된 계좌 유형입니다' }, { status: 400 });
   }
 
   // user_id가 같은 가구의 멤버인지 검증 (security)
@@ -93,8 +98,9 @@ export async function POST(request: Request) {
       user_id: targetUserId,
       brokerage,
       alias,
+      account_type: accountType,
     })
-    .select('id, brokerage, alias, user_id')
+    .select('id, brokerage, alias, account_type, user_id')
     .single();
 
   if (error) {
