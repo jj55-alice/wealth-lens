@@ -2,6 +2,15 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.2.1.0] - 2026-04-18
+
+### Added — 내 계좌 수정 기능
+설정 → 주식 계좌 관리에서 등록된 계좌의 금융사·별칭·계좌유형을 언제든 수정할 수 있습니다. 계좌 행 위에 마우스 올리면 "수정" 버튼이 노출되고, 다이얼로그에서 3개 필드 모두 편집 가능합니다. 계좌유형을 바꾸면 해당 계좌로 등록된 주식 자산의 분류도 자동으로 따라 움직여서, 자산목록 페이지의 "연금저축/ISA/IRP/우리사주/일반" 그룹이 항상 일관됩니다. 성공 토스트에는 동기화된 자산 건수가 함께 표시됩니다.
+
+- `PATCH /api/accounts?id=...`: brokerage/alias/account_type 부분 업데이트. 유니크 제약 위반 409, 권한 없음 403.
+- 매칭 튜플(`user_id, brokerage, alias`)을 기준으로 `assets.brokerage`/`account_alias`/`subcategory` 동시 UPDATE.
+- `.gitignore`: `.claude/scheduled_tasks.lock` 제외.
+
 ## [0.2.0.0] - 2026-04-18
 
 ### Added — 자산목록 페이지 (`/assets`) 신설
