@@ -2,6 +2,35 @@
 
 All notable changes to Wealth Lens will be documented in this file.
 
+## [0.2.0.0] - 2026-04-18
+
+### Added — 자산목록 페이지 (`/assets`) 신설
+대시보드가 "요약·차트·알림" 공간이 되고, `자산 목록`은 전용 페이지로 분리되었습니다. 자산 목록에서는 주식을 **계좌유형별(연금저축/ISA/IRP/우리사주/일반)**로 1차 그룹화해서 각 그룹 합계를 한눈에 볼 수 있습니다. 그룹 정렬은 자산 규모 내림차순 — 집중도 높은 곳부터 보입니다. 비주식 자산은 기존 카테고리 그룹화를 유지합니다. 대시보드 상단 네비에 `💰 자산` 탭이 추가되고 모바일 하단 네비도 동기화되었습니다.
+
+- 새 페이지 `src/app/assets/page.tsx` (서버 컴포넌트) + `src/components/assets-view.tsx` (클라이언트 — 소유자 필터).
+- `AssetList` 컴포넌트에 `groupBy: 'category' | 'accountType'` prop 추가. 기존 대시보드 사용처는 `category`로 유지.
+- 매수가 미입력 주식 배너 + 편집 링크가 `/assets` 상단에 표시됩니다.
+
+### Changed — 계좌유형이 자산이 아닌 "계좌"의 속성이 됨
+같은 키움증권 ISA 계좌에 들어있는 종목은 모두 같은 세제 혜택을 받습니다. 그런데 기존엔 계좌유형이 주식 자산 단위에 저장돼서, 같은 계좌 안 종목이 서로 다른 유형으로 등록되는 불일치가 가능했습니다. 이제 계좌유형은 `household_accounts` 테이블의 속성입니다.
+
+- DB 마이그레이션 `20260418000001_account_type.sql`: `household_accounts.account_type` 컬럼 추가 (`pension/isa/irp/espp/other`, 기본 `other`). 기존 `assets.subcategory` 값을 `(user_id, brokerage, alias)` 매칭으로 backfill (같은 계좌에 값이 여러 개면 최신 자산 우선). 매칭 실패는 `other` 기본값.
+- `/api/accounts` GET/POST에 `account_type` 필드 반영 + 유효성 검증.
+- 설정 → 주식 계좌 관리에 계좌유형 Select 추가, 계좌 리스트에 유형 배지 표시.
+- 자산 등록·편집 폼에서 "계좌 유형" Select 제거. 내 계좌 빠른 선택 버튼에 유형 배지 노출. 계좌 선택 시 `subcategory`가 해당 계좌의 `account_type`으로 자동 세팅됩니다.
+
+### Changed — 히스토리 페이지에 "기간별 변동" 카드 추가
+기간별 변동(1일/1달/3달/6달/1년)이 원래 수익률 페이지에 있었는데, "순자산 시계열" 맥락에 더 잘 맞는 히스토리 페이지로 옮겼습니다. `household_snapshots` 기반으로 계산되며, 해당 기간 스냅샷이 없으면 행 자체가 숨겨집니다. "순자산 기준"임이 라벨에 명시됩니다.
+
+- `src/app/history/page.tsx`에 `findNearestSnapshotAsc` + `computePeriodChanges` 추가. `/api/snapshot`이 ASC 정렬로 반환하는 것에 맞춰 재작성.
+
+### Removed — 수익률 페이지(`/returns`) 삭제
+`/returns` 페이지는 (1) 전체 수익률 요약 (2) 기간별 변동 (3) 종목별 수익률 — 3가지를 섞어 보여줬습니다. (1)(3)은 이미 `/stocks`에 더 완성된 형태로 존재하고, (2)는 히스토리로 이동했습니다. 북마크/외부 링크는 404 처리됩니다.
+
+- `src/app/returns/page.tsx` 삭제.
+- 대시보드 헤더 + 모바일 네비의 `/returns` 링크 제거.
+- 대시보드에서 `자산 목록` 카드는 `자산 목록 보러가기 →` 링크 카드로 대체되어 역할이 분리됩니다.
+
 ## [0.1.6.0] - 2026-04-10
 
 ### Added — Pace decomposition: 어제 → 오늘 순자산 변동 분해
