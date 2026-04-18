@@ -12,7 +12,6 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WealthLensWordmark } from '@/components/wealth-lens-wordmark';
 import { formatKRW } from '@/lib/format';
-import { AssetList } from '@/components/asset-list';
 import { LiabilityList } from '@/components/liability-list';
 import { HealthScore } from '@/components/health-score';
 import { LeaseAlerts } from '@/components/lease-alerts';
@@ -213,16 +212,16 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
               📊 히스토리
             </Link>
             <Link
+              href="/assets"
+              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
+            >
+              💰 자산
+            </Link>
+            <Link
               href="/stocks"
               className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
             >
               📈 주식
-            </Link>
-            <Link
-              href="/returns"
-              className="rounded-lg border border-border px-2 sm:px-3 py-2 text-xs hover:bg-muted/50 transition-colors hidden sm:inline-flex"
-            >
-              💰 수익률
             </Link>
             <Link
               href="/assets/new"
@@ -253,16 +252,16 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
             히스토리
           </Link>
           <Link
+            href="/assets"
+            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            자산
+          </Link>
+          <Link
             href="/stocks"
             className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
           >
             주식
-          </Link>
-          <Link
-            href="/returns"
-            className="flex-1 text-center rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-          >
-            수익률
           </Link>
           <Link
             href="/rebalancing"
@@ -464,15 +463,21 @@ export function DashboardView({ household, assets, liabilities, exchangeRate, cu
                   </CardContent>
                 </Card>
 
-                {/* Asset List */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">자산 목록</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AssetList assets={filteredAssets} exchangeRate={exchangeRate} onMutate={refreshData} />
-                  </CardContent>
-                </Card>
+                {/* 자산 목록 보러가기 — 상세는 /assets 페이지에서 */}
+                <Link
+                  href="/assets"
+                  className="block rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">전체 자산 목록 보기</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        계좌유형별 그룹 · {filteredAssets.length}개 항목
+                      </p>
+                    </div>
+                    <span className="text-muted-foreground">→</span>
+                  </div>
+                </Link>
               </>
             )}
 

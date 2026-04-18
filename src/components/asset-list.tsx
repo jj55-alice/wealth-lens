@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatKRW, formatUsdKrw } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
-import type { AssetWithPrice, AssetCategory } from '@/types/database';
+import type { AssetWithPrice, AssetCategory, HouseholdAccountType } from '@/types/database';
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
   real_estate: '부동산',
@@ -37,13 +37,36 @@ const CATEGORY_ORDER: AssetCategory[] = [
   'other',
 ];
 
+const ACCOUNT_TYPE_LABELS: Record<HouseholdAccountType | 'unmatched', string> = {
+  other: '일반',
+  isa: 'ISA',
+  pension: '연금저축',
+  irp: 'IRP',
+  espp: '우리사주',
+  unmatched: '미분류',
+};
+
+/** account lookup map key: `user_id|brokerage|alias` → account_type */
+type AccountTypeMap = Map<string, HouseholdAccountType>;
+
+export interface AccountEntry {
+  user_id: string;
+  brokerage: string;
+  alias: string;
+  account_type: HouseholdAccountType;
+}
+
 interface Props {
   assets: AssetWithPrice[];
   exchangeRate?: number | null;
   onMutate?: () => Promise<void>;
+  /** 'category' (기본, 대시보드/대시보드 자산카드용) | 'accountType' (자산목록 페이지용 — 주식만 계좌유형 1차 그룹) */
+  groupBy?: 'category' | 'accountType';
+  /** groupBy='accountType'일 때 필요 — household_accounts 목록. 주식 자산을 계좌유형으로 매칭할 때 사용 */
+  accounts?: AccountEntry[];
 }
 
-export function AssetList({ assets, exchangeRate, onMutate }: Props) {
+export function AssetList({ assets, exchangeRate, onMutate, groupBy = 'category', accounts = [] }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<AssetWithPrice | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
@@ -70,6 +93,37 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
     const list = grouped.get(a.category) ?? [];
     list.push(a);
     grouped.set(a.category, list);
+  }
+
+  // accountType 모드: 주식 자산을 "계좌유형 → brokerage·alias" 2단으로 그룹화.
+  // 비주식 자산은 기존 category 그룹화 유지.
+  const accountTypeMap: AccountTypeMap = new Map(
+    accounts.map((a) => [`${a.user_id}|${a.brokerage}|${a.alias}`, a.account_type]),
+  );
+
+  function lookupAccountType(a: AssetWithPrice): HouseholdAccountType | 'unmatched' {
+    if (!a.brokerage || !a.account_alias) return 'unmatched';
+    const key = `${a.owner_user_id}|${a.brokerage}|${a.account_alias}`;
+    return accountTypeMap.get(key) ?? 'unmatched';
+  }
+
+  /** 주식 자산을 계좌유형별로 그룹화하고 자산 규모 내림차순 정렬 */
+  function groupStocksByAccountType(stocks: AssetWithPrice[]) {
+    const typeMap = new Map<HouseholdAccountType | 'unmatched', AssetWithPrice[]>();
+    for (const s of stocks) {
+      const t = lookupAccountType(s);
+      const list = typeMap.get(t) ?? [];
+      list.push(s);
+      typeMap.set(t, list);
+    }
+    return Array.from(typeMap.entries())
+      .map(([type, items]) => ({
+        type,
+        items,
+        total: items.reduce((sum, a) => sum + a.current_value, 0),
+        subGroups: groupStocksByAccount(items),
+      }))
+      .sort((a, b) => b.total - a.total); // 자산 규모 내림차순
   }
 
   // 주식 카테고리는 금융사 + 계좌별칭으로 sub-group, 그룹/항목 모두 가나다순 정렬
@@ -179,50 +233,118 @@ export function AssetList({ assets, exchangeRate, onMutate }: Props) {
     );
   }
 
+  const stockAccountTypeGroups =
+    groupBy === 'accountType' && grouped.has('stock')
+      ? groupStocksByAccountType(grouped.get('stock')!)
+      : null;
+
+  // accountType 모드: 주식은 계좌유형 1차 그룹으로 분리. 비주식은 기존 category 그룹화.
+  const nonStockCategoryOrder =
+    groupBy === 'accountType'
+      ? CATEGORY_ORDER.filter((c) => c !== 'stock')
+      : CATEGORY_ORDER;
+
   return (
     <>
       <div className="space-y-4">
-        {CATEGORY_ORDER.filter((cat) => grouped.has(cat)).map((cat) => {
-          const items = grouped.get(cat)!;
-          const categoryTotal = items.reduce((s, a) => s + a.current_value, 0);
-          const stockGroups = cat === 'stock' ? groupStocksByAccount(items) : null;
-
-          return (
-            <div key={cat}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {CATEGORY_LABELS[cat]}
-                </h3>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {formatKRW(categoryTotal)}
-                </span>
-              </div>
-              {stockGroups ? (
-                <div className="space-y-3">
-                  {stockGroups.map((group) => (
-                    <div key={group.key}>
-                      <div className="flex items-center justify-between mb-1 px-3">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {group.key}
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {formatKRW(group.total)}
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        {group.items.map(renderRow)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {items.map(renderRow)}
-                </div>
-              )}
+        {/* accountType 모드: 주식 블록을 계좌유형별로 렌더 (자산 규모 내림차순) */}
+        {stockAccountTypeGroups && stockAccountTypeGroups.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {CATEGORY_LABELS['stock']}
+              </h3>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {formatKRW(grouped.get('stock')!.reduce((s, a) => s + a.current_value, 0))}
+              </span>
             </div>
-          );
-        })}
+            <div className="space-y-4">
+              {stockAccountTypeGroups.map((typeGroup) => (
+                <div key={typeGroup.type} className="rounded-lg border border-border/50 p-2">
+                  <div className="flex items-center justify-between mb-2 px-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold">
+                        {ACCOUNT_TYPE_LABELS[typeGroup.type]}
+                      </span>
+                      {typeGroup.type === 'unmatched' && (
+                        <Link
+                          href="/settings"
+                          className="text-[10px] text-primary hover:underline"
+                        >
+                          계좌 연결하기 →
+                        </Link>
+                      )}
+                    </div>
+                    <span className="text-xs font-medium tabular-nums">
+                      {formatKRW(typeGroup.total)}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {typeGroup.subGroups.map((group) => (
+                      <div key={group.key}>
+                        <div className="flex items-center justify-between mb-1 px-3">
+                          <span className="text-[11px] font-medium text-muted-foreground">
+                            {group.key}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground tabular-nums">
+                            {formatKRW(group.total)}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {group.items.map(renderRow)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {nonStockCategoryOrder
+          .filter((cat) => grouped.has(cat))
+          .map((cat) => {
+            const items = grouped.get(cat)!;
+            const categoryTotal = items.reduce((s, a) => s + a.current_value, 0);
+            const stockGroups = cat === 'stock' ? groupStocksByAccount(items) : null;
+
+            return (
+              <div key={cat}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {CATEGORY_LABELS[cat]}
+                  </h3>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {formatKRW(categoryTotal)}
+                  </span>
+                </div>
+                {stockGroups ? (
+                  <div className="space-y-3">
+                    {stockGroups.map((group) => (
+                      <div key={group.key}>
+                        <div className="flex items-center justify-between mb-1 px-3">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {group.key}
+                          </span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatKRW(group.total)}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {group.items.map(renderRow)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {items.map(renderRow)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {/* 삭제 확인 다이얼로그 */}

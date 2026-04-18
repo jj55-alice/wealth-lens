@@ -27,6 +27,69 @@ interface Snapshot {
   snapshot_date: string;
 }
 
+interface PeriodChange {
+  label: string;
+  daysAgo: number;
+  /** 비교 기준 스냅샷 날짜 */
+  snapshotDate: string;
+  /** 그 시점의 순자산 */
+  snapshotNetWorth: number;
+  /** 현재 - 과거 */
+  delta: number;
+  /** 변동률 (%) */
+  deltaPct: number;
+}
+
+/**
+ * snapshots 는 ASC 정렬 기준. target 날짜 이하의 가장 최근 스냅샷을 반환.
+ * (returns 페이지의 findNearestSnapshot 은 DESC 가정이었음 — 여기서는 ASC 역순회)
+ */
+function findNearestSnapshotAsc(
+  snapshots: Snapshot[],
+  daysAgo: number,
+): Snapshot | null {
+  const target = new Date();
+  target.setHours(0, 0, 0, 0);
+  target.setDate(target.getDate() - daysAgo);
+  for (let i = snapshots.length - 1; i >= 0; i--) {
+    if (new Date(snapshots[i].snapshot_date) <= target) return snapshots[i];
+  }
+  return null;
+}
+
+const PERIODS: { label: string; days: number }[] = [
+  { label: '1일 전 대비', days: 1 },
+  { label: '1달 전 대비', days: 30 },
+  { label: '3달 전 대비', days: 90 },
+  { label: '6달 전 대비', days: 180 },
+  { label: '1년 전 대비', days: 365 },
+];
+
+function computePeriodChanges(snapshots: Snapshot[]): PeriodChange[] {
+  if (snapshots.length < 2) return [];
+  const latest = snapshots[snapshots.length - 1];
+  const current = Number(latest.net_worth);
+  const changes: PeriodChange[] = [];
+  for (const p of PERIODS) {
+    const past = findNearestSnapshotAsc(snapshots, p.days);
+    if (!past) continue;
+    if (past.snapshot_date === latest.snapshot_date) continue;
+    const pastNw = Number(past.net_worth);
+    if (pastNw <= 0) continue;
+    const delta = current - pastNw;
+    const deltaPct = (delta / pastNw) * 100;
+    changes.push({
+      label: p.label,
+      daysAgo: p.days,
+      snapshotDate: past.snapshot_date,
+      snapshotNetWorth: pastNw,
+      delta,
+      deltaPct,
+    });
+  }
+  return changes;
+}
+
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) {
   if (!active || !payload) return null;
   return (
@@ -90,6 +153,7 @@ export default function HistoryPage() {
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
   const prev = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
   const change = latest && prev ? Number(latest.net_worth) - Number(prev.net_worth) : null;
+  const periodChanges = computePeriodChanges(snapshots);
 
   if (loading) {
     return (
@@ -165,6 +229,47 @@ export default function HistoryPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 기간별 변동 — household_snapshots 기반. 해당 기간 스냅샷 없으면 행 생략 */}
+            {periodChanges.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">기간별 변동 (순자산 기준)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {periodChanges.map((p) => (
+                      <div key={p.daysAgo} className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{p.label}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {p.snapshotDate} · {formatKRW(p.snapshotNetWorth)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-semibold tabular-nums ${
+                              p.delta >= 0 ? 'text-emerald-500' : 'text-red-500'
+                            }`}
+                          >
+                            {p.delta >= 0 ? '+' : ''}
+                            {formatKRW(p.delta)}
+                          </p>
+                          <p
+                            className={`text-[10px] tabular-nums ${
+                              p.delta >= 0 ? 'text-emerald-500' : 'text-red-500'
+                            }`}
+                          >
+                            {p.delta >= 0 ? '+' : ''}
+                            {p.deltaPct.toFixed(2)}%
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 순자산 추이 차트 */}
             <Card>
